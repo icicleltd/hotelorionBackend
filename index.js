@@ -37,7 +37,11 @@ app.use("/api/corporate", corporate);
 app.use("/api/booking-guest", bookingGuestRoute);
 
 app.get("/", async (req, res) => {
-  res.send("Chuti Resort server is running");
+  res.status(200).json({
+    success: true,
+    statusCode: 200,
+    message: "Hotel Orion International Server Running...",
+  });
 });
 
 app.use((err, req, res, next) => {
@@ -56,4 +60,6 @@ app.all("*", (req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
 
-app.listen(port, () => console.log(`Chuti Resort running on ${port}`));
+app.listen(port, () =>
+  console.log(`Hotel Orion International Server Running on ${port}`)
+);
