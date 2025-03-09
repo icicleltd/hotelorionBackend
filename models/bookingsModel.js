@@ -3,6 +3,10 @@ const { Schema } = mongoose;
 
 const bookingschema = new Schema(
   {
+    bookingId: {
+      type: String,
+      unique: true,
+    },
     customerName: {
       type: String,
       required: true,

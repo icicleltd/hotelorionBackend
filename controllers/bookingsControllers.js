@@ -42,10 +42,30 @@ exports.createbookings = async (req, res, next) => {
       }
     }
 
+    // Generate booking serial number
+    // Find the last booking to get the highest serial number
+    const lastBooking = await Bookings.findOne().sort({ createdAt: -1 });
+
+    // Initialize the serial number
+    let serialNumber;
+
+    if (!lastBooking || !lastBooking.bookingId) {
+      // If no booking exists or no bookingId field exists, start with 1
+      serialNumber = "R-0001";
+    } else {
+      // Extract the number part, increment it, and create a new serial number
+      const lastSerialNumber = lastBooking.bookingId;
+      const numPart = parseInt(lastSerialNumber.split("-")[1]);
+      const newNumPart = numPart + 1;
+      serialNumber = `R-${newNumPart.toString().padStart(4, "0")}`;
+    }
+
+    // Add the serial number to the booking data
+    bookingData.bookingId = serialNumber;
+
     // If a file was uploaded, add the Cloudinary information to the booking data
     if (req.file) {
       bookingData.nidFile = req.file.path;
-
       // Cloudinary URL
     }
 

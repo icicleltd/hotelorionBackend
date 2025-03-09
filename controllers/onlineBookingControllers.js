@@ -14,9 +14,8 @@ exports.createonlinebookings = async (req, res, next) => {
 
 exports.getonlonebookings = async (req, res, next) => {
   try {
-    const onlinebookings = await OnlineBooking.find()
-      .sort({ createdAt: -1 })
-      .select("-__v -updatedAt -createdAt -_id");
+    const onlinebookings = await OnlineBooking.find().sort({ createdAt: -1 });
+
     res.status(200).json({
       message: "Online Bookings get successfully",
       data: onlinebookings,
@@ -37,6 +36,26 @@ exports.changeseenbookings = async (req, res, next) => {
     res.status(200).json({
       message: "Online Bookings updated successfully",
       data: updatecheckin,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteOnlineBooking = async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    const deletedBooking = await OnlineBooking.findByIdAndDelete(id);
+
+    if (!deletedBooking) {
+      return res.status(404).json({
+        message: "Online booking not found",
+      });
+    }
+
+    res.status(200).json({
+      message: "Online booking deleted successfully",
+      data: deletedBooking,
     });
   } catch (error) {
     next(error);
