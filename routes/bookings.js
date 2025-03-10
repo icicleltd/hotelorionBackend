@@ -12,6 +12,7 @@ const {
   getbookingsbyroomNumber,
   updatenightstayaddons,
   updatedBookingInfo,
+  getLastbookingsId,
 } = require("../controllers/bookingsControllers");
 const router = express.Router();
 
@@ -53,5 +54,7 @@ router.put("/updateaddons", updatenightstayaddons); // for addons
 router.delete("/deletebooking/:id", deletebooking);
 
 router.patch("/allbookings/:id", updatedBookingInfo);
+
+router.get("/lastRegisteredId", getLastbookingsId)
 
 module.exports = router;
