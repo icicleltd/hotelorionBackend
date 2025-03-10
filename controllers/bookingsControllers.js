@@ -42,27 +42,6 @@ exports.createbookings = async (req, res, next) => {
       }
     }
 
-    // Generate booking serial number
-    // Find the last booking to get the highest serial number
-    const lastBooking = await Bookings.findOne().sort({ createdAt: -1 });
-
-    // Initialize the serial number
-    let serialNumber;
-
-    if (!lastBooking || !lastBooking.bookingId) {
-      // If no booking exists or no bookingId field exists, start with 1
-      serialNumber = "R-0001";
-    } else {
-      // Extract the number part, increment it, and create a new serial number
-      const lastSerialNumber = lastBooking.bookingId;
-      const numPart = parseInt(lastSerialNumber.split("-")[1]);
-      const newNumPart = numPart + 1;
-      serialNumber = `R-${newNumPart.toString().padStart(4, "0")}`;
-    }
-
-    // Add the serial number to the booking data
-    bookingData.bookingId = serialNumber;
-
     // If a file was uploaded, add the Cloudinary information to the booking data
     if (req.file) {
       bookingData.nidFile = req.file.path;
@@ -95,6 +74,30 @@ exports.getbookings = async (req, res, next) => {
       data: allbookings,
     });
   } catch (error) {
+    next(error);
+  }
+};
+exports.getLastbookingsId = async (req, res, next) => {
+  try {
+    // Find the last booking to get the highest serial number
+    const lastBooking = await Bookings.findOne().sort({ createdAt: -1 });
+
+    let serialNumber;
+
+    if (!lastBooking || !lastBooking.bookingId) {
+      // If no booking exists or no bookingId field exists, return default
+      serialNumber = "R-0001";
+    } else {
+      // Return the last booking ID
+      serialNumber = lastBooking.bookingId;
+    }
+
+    res.status(200).json({
+      message: "Last booking ID retrieved successfully",
+      bookingId: serialNumber,
+    });
+  } catch (error) {
+    console.error("Error retrieving last booking ID:", error);
     next(error);
   }
 };
@@ -260,66 +263,6 @@ exports.updatebooking = async (req, res, next) => {
     next(error);
   }
 };
-
-// exports.updatebooking = async (req, res, next) => {
-//   try {
-//     const id = req.params.id;
-//     const updatecheckin = await Bookings.findByIdAndUpdate(
-//       id,
-//       {
-//         checkIn: "Checked Out",
-//       },
-//       { new: true }
-//     );
-//     const updatedaylongcheckin = await Daylong.findByIdAndUpdate(
-//       id,
-//       {
-//         checkIn: "Checked Out",
-//       },
-//       { new: true }
-//     );
-
-//     if (!updatecheckin) {
-//       return res.status(404).json({ message: "Check In Status Not Changed" });
-//     }
-
-//     const customers = new Customers({
-//       _id: updatecheckin?._id,
-//       bookingroom: updatecheckin?.bookingroom,
-//       customerName: updatecheckin?.customerName,
-//       customerNumber: updatecheckin?.customerNumber,
-//       authentication: updatecheckin?.authentication,
-//       authenticationNumber: updatecheckin?.authenticationNumber,
-//       firstDate: updatecheckin?.firstDate,
-//       lastDate: updatecheckin?.lastDate,
-//       roomNumber: updatecheckin?.roomNumber,
-//       person: updatecheckin?.person,
-//       bookingDate: updatecheckin?.bookingDate,
-//       paidAmount: updatecheckin?.paidAmount,
-//       dueAmount: updatecheckin?.dueAmount,
-//       checkIn: updatecheckin?.checkIn,
-//       discountPercentage: updatecheckin?.discountPercentage,
-//       discountFlat: updatecheckin?.discountFlat,
-//       paymentMethod: updatecheckin?.paymentMethod,
-//       checkNumber: updatecheckin?.checkNumber,
-//       transactionId: updatecheckin?.transactionId,
-//       bookedFrom: updatecheckin?.bookedFrom,
-//       referredBy: updatecheckin?.referredBy,
-//       remarks: updatecheckin?.remarks,
-//       isDayLong: updatecheckin?.isDayLong,
-//     });
-
-//     await customers.save();
-//     await Bookings.findByIdAndDelete(id);
-
-//     res.status(200).json({
-//       message: "Booking checked out Successfully and moved to customers",
-//     });
-//   } catch (error) {
-//     next(error);
-
-//   }
-// };
 
 exports.updateduepayment = async (req, res, next) => {
   try {

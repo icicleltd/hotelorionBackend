@@ -7,6 +7,11 @@ const bookingschema = new Schema(
       type: String,
       unique: true,
     },
+    customerTitle: {
+      type: String,
+      enum: ["Mr.", "Mrs.", "Ms."],
+      default: "Mr."
+    },
     customerName: {
       type: String,
       required: true,
@@ -65,7 +70,11 @@ const bookingschema = new Schema(
       ],
       required: true,
     },
-
+    profession: {
+      type: String,
+      enum: ["Service", "Business", "Student", "Others"],
+      default: "Business"
+    },
     bookedFrom: {
       type: String,
     },
@@ -80,18 +89,15 @@ const bookingschema = new Schema(
     referredBy: {
       type: String,
     },
-
     remarks: {
       type: String,
     },
-
     beforeDiscountCost: {
       type: Number,
     },
     nidFile: {
       type: String,
     },
-
     checkIn: {
       type: String,
       default: "checked In",
@@ -100,7 +106,6 @@ const bookingschema = new Schema(
       type: Boolean,
       default: false,
     },
-
     addons: {
       type: Array,
       default: [],
