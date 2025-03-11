@@ -86,7 +86,7 @@ exports.getLastbookingsId = async (req, res, next) => {
 
     if (!lastBooking || !lastBooking.bookingId) {
       // If no booking exists or no bookingId field exists, return default
-      serialNumber = "R-0001";
+      serialNumber = "0000";
     } else {
       // Return the last booking ID
       serialNumber = lastBooking.bookingId;
