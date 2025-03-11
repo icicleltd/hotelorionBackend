@@ -10,7 +10,7 @@ const bookingschema = new Schema(
     customerTitle: {
       type: String,
       enum: ["Mr.", "Mrs.", "Ms."],
-      default: "Mr."
+      default: "Mr.",
     },
     customerName: {
       type: String,
@@ -33,6 +33,12 @@ const bookingschema = new Schema(
       type: String,
     },
     lastDate: {
+      type: String,
+    },
+    checkInTime: {
+      type: String,
+    },
+    checkOutTime: {
       type: String,
     },
     roomNumber: {
@@ -73,7 +79,7 @@ const bookingschema = new Schema(
     profession: {
       type: String,
       enum: ["Service", "Business", "Student", "Others"],
-      default: "Business"
+      default: "Business",
     },
     bookedFrom: {
       type: String,
