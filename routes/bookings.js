@@ -13,6 +13,7 @@ const {
   updatenightstayaddons,
   updatedBookingInfo,
   getLastbookingsId,
+  roomsColorStatus,
 } = require("../controllers/bookingsControllers");
 const router = express.Router();
 
@@ -56,5 +57,7 @@ router.delete("/deletebooking/:id", deletebooking);
 router.patch("/allbookings/:id", updatedBookingInfo);
 
 router.get("/lastRegisteredId", getLastbookingsId)
+
+router.get("/color-status", roomsColorStatus)
 
 module.exports = router;

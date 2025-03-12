@@ -88,7 +88,8 @@ const bookingschema = new Schema(
       type: Boolean,
       default: false,
     },
-    isBooked: {
+
+    isTodayCheckout: {
       type: Boolean,
       default: false,
     },

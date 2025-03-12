@@ -1,6 +1,7 @@
 const CorporateBooking = require("../models/CorporateBookingModel");
 const Customers = require("../models/CustomersModel");
 const Daylong = require("../models/DaylongModel");
+const OnlineBooking = require("../models/OnlineBookingModel");
 const Bookings = require("../models/bookingsModel");
 
 exports.createbookings = async (req, res, next) => {
@@ -63,10 +64,28 @@ exports.createbookings = async (req, res, next) => {
 
 exports.getbookings = async (req, res, next) => {
   try {
+    // Get today's date in 'YYYY-MM-DD' format
+    const today = new Date();
+    const todayFormatted = today.toISOString().split("T")[0]; // Format: 'YYYY-MM-DD'
+
+    // First, reset all bookings that are no longer today's checkout
+    await Bookings.updateMany(
+      { isTodayCheckout: true, lastDate: { $ne: todayFormatted } },
+      { $set: { isTodayCheckout: false } }
+    );
+
+    // Then, set today's checkouts
+    await Bookings.updateMany(
+      { lastDate: todayFormatted, isTodayCheckout: false },
+      { $set: { isTodayCheckout: true } }
+    );
+
+    // Now fetch the updated bookings
     const bookings = await Bookings.find().sort({ createdAt: -1 });
     const daylong = await Daylong.find();
     const corporate = await CorporateBooking.find();
 
+    // Combine all bookings
     const allbookings = [...bookings, ...daylong, ...corporate];
 
     res.status(200).json({
@@ -77,6 +96,100 @@ exports.getbookings = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.roomsColorStatus = async (req, res, next) => {
+  try {
+    // Get today's date in 'YYYY-MM-DD' format
+    const today = new Date();
+    // const today = new Date("2025-03-12");
+    const todayFormatted = today.toISOString().split("T")[0]; // Format: 'YYYY-MM-DD'
+    // console.log(todayFormatted)
+    // console.log(today)
+
+    // First, update the isTodayCheckout flag for all bookings to ensure it's accurate
+    await Bookings.updateMany(
+      { isTodayCheckout: true, lastDate: { $ne: todayFormatted } },
+      { $set: { isTodayCheckout: false } }
+    );
+
+    
+
+    await Bookings.updateMany(
+      { lastDate: todayFormatted, isTodayCheckout: false },
+      { $set: { isTodayCheckout: true } }
+    );
+
+    // Fetch all bookings from Bookings collection
+    const bookings = await Bookings.find({
+      isRegistered: true,
+    });
+
+    // Fetch online bookings that are not yet converted to registrations
+    const onlineBookings = await OnlineBooking.find({
+      isBookings: true,
+    });
+
+    // Initialize room category arrays
+    const registeredAndTodayCheckout = [];
+    const registeredAndNotTodayCheckout = [];
+    const previousRegisteredAndNotTodayCheckout = [];
+    const bookingRooms = [];
+
+    // Process registered bookings
+    bookings.forEach((booking) => {
+      if (Array.isArray(booking.roomNumber)) {
+        if (booking.isTodayCheckout === true) {
+          // If registered and today checkout
+          registeredAndTodayCheckout.push(...booking.roomNumber);
+        } else if (booking.firstDate === todayFormatted) {
+          // If check-in is today and not checking out today
+          registeredAndNotTodayCheckout.push(...booking.roomNumber);
+        } else if (booking.firstDate < todayFormatted && booking.lastDate > todayFormatted) {
+          // If check-in was before today and check-out is after today
+          previousRegisteredAndNotTodayCheckout.push(...booking.roomNumber);
+        }
+      }
+    });
+
+    // Process online bookings
+    onlineBookings.forEach((booking) => {
+      if (booking.roomNumber) {
+        // Add rooms from online bookings
+        bookingRooms.push(booking.roomNumber);
+      }
+    });
+
+    // Remove duplicates from each array
+    const uniqueRegisteredAndTodayCheckout = [
+      ...new Set(registeredAndTodayCheckout),
+    ];
+    const uniqueRegisteredAndNotTodayCheckout = [
+      ...new Set(registeredAndNotTodayCheckout),
+    ];
+    const uniquePreviousRegisteredAndNotTodayCheckout = [
+      ...new Set(previousRegisteredAndNotTodayCheckout),
+    ];
+    const uniqueBookingRooms = [...new Set(bookingRooms)];
+
+    // Create the roomsColor object
+    const roomsColor = {
+      registeredAndTodayCheckout: uniqueRegisteredAndTodayCheckout,
+      registeredAndNotTodayCheckout: uniqueRegisteredAndNotTodayCheckout,
+      previousRegisteredAndNotTodayCheckout: uniquePreviousRegisteredAndNotTodayCheckout,
+      bookingRooms: uniqueBookingRooms,
+    };
+
+    // Return the response
+    res.status(200).json({
+      message: "Room status colors retrieved successfully",
+      data: roomsColor,
+    });
+  } catch (error) {
+    console.error("Error in roomsColorStatus:", error);
+    next(error);
+  }
+};
+
 exports.getLastbookingsId = async (req, res, next) => {
   try {
     // Find the last booking to get the highest serial number
