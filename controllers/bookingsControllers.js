@@ -99,20 +99,52 @@ exports.getbookings = async (req, res, next) => {
 
 exports.roomsColorStatus = async (req, res, next) => {
   try {
-    // Get today's date in 'YYYY-MM-DD' format
-    const today = new Date();
-    // const today = new Date("2025-03-12");
-    const todayFormatted = today.toISOString().split("T")[0]; // Format: 'YYYY-MM-DD'
-    // console.log(todayFormatted)
-    // console.log(today)
+    // Get formatted date for Asia/Dhaka timezone
+    const currentDate = new Date();
+    const timeZone = "Asia/Dhaka";
+    const formattedDateString = new Intl.DateTimeFormat("en-US", {
+      timeZone: timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }).format(currentDate);
+    // console.log("Current date in Dhaka:", formattedDateString);
+
+    // Parse the formatted date string back to a Date object
+    // Format is MM/DD/YYYY, HH:MM:SS AM/PM
+    const parts = formattedDateString.split(", ");
+    const dateParts = parts[0].split("/");
+    const timeParts = parts[1].split(" ");
+    const timeValues = timeParts[0].split(":");
+
+    // Create date from parts (month is 0-indexed in JS Date)
+    const dhakaNow = new Date(
+      parseInt(dateParts[2]), // year
+      parseInt(dateParts[0]) - 1, // month (0-indexed)
+      parseInt(dateParts[1]), // day
+      timeParts[1] === "PM" && parseInt(timeValues[0]) !== 12
+        ? parseInt(timeValues[0]) + 12 // hour (convert to 24hr)
+        : timeParts[1] === "AM" && parseInt(timeValues[0]) === 12
+        ? 0 // midnight (12 AM)
+        : parseInt(timeValues[0]), // other hours
+      parseInt(timeValues[1]), // minutes
+      parseInt(timeValues[2]) // seconds
+    );
+
+    // console.log("Parsed Dhaka date:", dhakaNow);
+
+    // Format as YYYY-MM-DD for database queries
+    const todayFormatted = dhakaNow.toISOString().split("T")[0];
+    // console.log("Today formatted for queries:", todayFormatted);
 
     // First, update the isTodayCheckout flag for all bookings to ensure it's accurate
     await Bookings.updateMany(
       { isTodayCheckout: true, lastDate: { $ne: todayFormatted } },
       { $set: { isTodayCheckout: false } }
     );
-
-    
 
     await Bookings.updateMany(
       { lastDate: todayFormatted, isTodayCheckout: false },
@@ -135,27 +167,52 @@ exports.roomsColorStatus = async (req, res, next) => {
     const previousRegisteredAndNotTodayCheckout = [];
     const bookingRooms = [];
 
+    // Helper function to process room numbers
+    const processRoomNumbers = (booking, roomNumbers) => {
+      if (booking.isTodayCheckout === true) {
+        // If registered and checking out today
+        registeredAndTodayCheckout.push(...roomNumbers);
+      } else if (booking.firstDate === todayFormatted) {
+        // If check-in is today
+        registeredAndNotTodayCheckout.push(...roomNumbers);
+      } else if (
+        booking.firstDate < todayFormatted &&
+        booking.lastDate > todayFormatted
+      ) {
+        // If stay spans across today (checked in before, checking out after)
+        previousRegisteredAndNotTodayCheckout.push(...roomNumbers);
+      }
+    };
+
     // Process registered bookings
     bookings.forEach((booking) => {
       if (Array.isArray(booking.roomNumber)) {
-        if (booking.isTodayCheckout === true) {
-          // If registered and today checkout
-          registeredAndTodayCheckout.push(...booking.roomNumber);
-        } else if (booking.firstDate === todayFormatted) {
-          // If check-in is today and not checking out today
-          registeredAndNotTodayCheckout.push(...booking.roomNumber);
-        } else if (booking.firstDate < todayFormatted && booking.lastDate > todayFormatted) {
-          // If check-in was before today and check-out is after today
-          previousRegisteredAndNotTodayCheckout.push(...booking.roomNumber);
-        }
+        processRoomNumbers(booking, booking.roomNumber);
+      } else if (typeof booking.roomNumber === "string") {
+        // Handle case where roomNumber might be a comma-separated string
+        const roomNumbers = booking.roomNumber
+          .split(",")
+          .map((room) => room.trim());
+        processRoomNumbers(booking, roomNumbers);
       }
     });
 
     // Process online bookings
     onlineBookings.forEach((booking) => {
       if (booking.roomNumber) {
-        // Add rooms from online bookings
-        bookingRooms.push(booking.roomNumber);
+        if (typeof booking.roomNumber === "string") {
+          // Handle comma-separated room numbers
+          const roomNumbers = booking.roomNumber
+            .split(",")
+            .map((room) => room.trim());
+          bookingRooms.push(...roomNumbers);
+        } else if (Array.isArray(booking.roomNumber)) {
+          // Handle array of room numbers
+          bookingRooms.push(...booking.roomNumber);
+        } else {
+          // Handle single room number
+          bookingRooms.push(booking.roomNumber);
+        }
       }
     });
 
@@ -175,8 +232,11 @@ exports.roomsColorStatus = async (req, res, next) => {
     const roomsColor = {
       registeredAndTodayCheckout: uniqueRegisteredAndTodayCheckout,
       registeredAndNotTodayCheckout: uniqueRegisteredAndNotTodayCheckout,
-      previousRegisteredAndNotTodayCheckout: uniquePreviousRegisteredAndNotTodayCheckout,
+      previousRegisteredAndNotTodayCheckout:
+        uniquePreviousRegisteredAndNotTodayCheckout,
       bookingRooms: uniqueBookingRooms,
+      currentDate: formattedDateString,
+      formattedForQueries: todayFormatted,
     };
 
     // Return the response
@@ -218,13 +278,17 @@ exports.getLastbookingsId = async (req, res, next) => {
 exports.getbookingsbyroomNumber = async (req, res, next) => {
   try {
     const { roomnumber, date } = req.query;
+
+    const updateDate = new Date(date);
+
     const bookings = await Bookings.find({
       $or: [
-        { firstDate: { $lte: date }, lastDate: { $gt: date } },
+        { firstDate: { $lte: date }, lastDate: { $gte: date } },
         { firstDate: { $lte: date }, lastDate: null },
         { firstDate: null, lastDate: { $gt: date } },
       ],
     });
+
     const daylong = await Daylong.find({
       bookingDate: date,
     });
@@ -235,6 +299,8 @@ exports.getbookingsbyroomNumber = async (req, res, next) => {
       if (Array.isArray(booking?.roomNumber)) {
         return booking?.roomNumber?.includes(roomnumber);
       }
+
+      console.log(filteredBookings);
       if (Array.isArray(booking?.roomsNumber)) {
         return booking?.roomsNumber?.includes(roomnumber);
       }
