@@ -58,6 +58,6 @@ router.patch("/allbookings/:id", updatedBookingInfo);
 
 router.get("/lastRegisteredId", getLastbookingsId)
 
-router.get("/color-status", roomsColorStatus)
+router.get("/color-status/:date", roomsColorStatus)
 
 module.exports = router;

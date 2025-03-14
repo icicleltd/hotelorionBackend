@@ -99,8 +99,27 @@ exports.getbookings = async (req, res, next) => {
 
 exports.roomsColorStatus = async (req, res, next) => {
   try {
-    // Get formatted date for Asia/Dhaka timezone
-    const currentDate = new Date();
+    // Extract date parameter properly
+    const dateParam = req.params.date;
+    
+    // Create a valid Date object based on the parameter or use current date
+    let currentDate;
+    if (dateParam) {
+      // If date parameter is provided, create a date from it
+      currentDate = new Date(dateParam);
+      
+      // Check if the date is valid
+      if (isNaN(currentDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid date format. Please use YYYY-MM-DD format."
+        });
+      }
+    } else {
+      // Use current date if no parameter provided
+      currentDate = new Date();
+    }
+
     const timeZone = "Asia/Dhaka";
     const formattedDateString = new Intl.DateTimeFormat("en-US", {
       timeZone: timeZone,
@@ -111,8 +130,7 @@ exports.roomsColorStatus = async (req, res, next) => {
       minute: "2-digit",
       second: "2-digit",
     }).format(currentDate);
-    // console.log("Current date in Dhaka:", formattedDateString);
-
+    
     // Parse the formatted date string back to a Date object
     // Format is MM/DD/YYYY, HH:MM:SS AM/PM
     const parts = formattedDateString.split(", ");
@@ -134,11 +152,8 @@ exports.roomsColorStatus = async (req, res, next) => {
       parseInt(timeValues[2]) // seconds
     );
 
-    // console.log("Parsed Dhaka date:", dhakaNow);
-
     // Format as YYYY-MM-DD for database queries
     const todayFormatted = dhakaNow.toISOString().split("T")[0];
-    // console.log("Today formatted for queries:", todayFormatted);
 
     // First, update the isTodayCheckout flag for all bookings to ensure it's accurate
     await Bookings.updateMany(
@@ -285,7 +300,7 @@ exports.getbookingsbyroomNumber = async (req, res, next) => {
       $or: [
         { firstDate: { $lte: date }, lastDate: { $gte: date } },
         { firstDate: { $lte: date }, lastDate: null },
-        { firstDate: null, lastDate: { $gt: date } },
+        { firstDate: null, lastDate: { $gte: date } },
       ],
     });
 
