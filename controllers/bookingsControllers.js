@@ -600,32 +600,85 @@ exports.updatenightstayaddons = async (req, res, next) => {
 
 exports.updatedBookingInfo = async (req, res, next) => {
   try {
-    const id = req.params.id;
-    const updateData = req.body;
-
-    // First, try to find and update regular booking
-    let updatedBooking = await Bookings.findById(id);
-
-    if (updatedBooking) {
-      updatedBooking = await Bookings.findByIdAndUpdate(
-        id,
-        { $set: updateData },
-        { new: true }
-      );
-
-      return res.status(200).json({
-        success: true,
-        message: "Booking information updated successfully",
-        data: updatedBooking,
+    const { bookingId, payment, ...otherUpdateData } = req.body;
+    console.log(bookingId, payment)
+    
+    // First, find the existing booking to get current payment array
+    const existingBooking = await Bookings.findOne({ bookingId });
+    
+    if (!existingBooking) {
+      return res.status(404).json({
+        message: "Booking not found",
       });
     }
 
-    // If no booking was found with the provided ID
-    return res.status(404).json({
-      success: false,
-      message: "Booking not found",
+    let updateData = { ...otherUpdateData };
+    
+    // If payment data is provided, add it to the existing payments array
+    if (payment) {
+      // Use $push to add the new payment to the existing payment array
+      await Bookings.findOneAndUpdate(
+        { bookingId },
+        { $push: { payment: payment } },
+        { new: false }
+      );
+    }
+    
+    // Update all other booking information if there's any
+    if (Object.keys(updateData).length > 0) {
+      await Bookings.findOneAndUpdate(
+        { bookingId },
+        updateData,
+        { new: false }
+      );
+    }
+    
+    // Get the updated booking data to return
+    const updatedBooking = await Bookings.findOne({ bookingId });
+    
+    // Calculate total paid amount from all payments
+    const totalPaidAmount = updatedBooking.payment.reduce((total, pay) => {
+      return total + (pay.amount || 0);
+    }, 0);
+    
+    // Update paidAmount field to reflect the total of all payments
+    await Bookings.findOneAndUpdate(
+      { bookingId },
+      { 
+        paidAmount: totalPaidAmount,
+        // Recalculate dueAmount based on beforeDiscountCost, discounts, and paid amount
+        dueAmount: calculateDueAmount(
+          updatedBooking.beforeDiscountCost,
+          updatedBooking.discountPercentage,
+          updatedBooking.discountFlat,
+          totalPaidAmount
+        )
+      },
+      { new: true }
+    );
+    
+    // Get the final updated booking
+    const finalUpdatedBooking = await Bookings.findOne({ bookingId });
+    
+    res.status(200).json({
+      message: "Booking updated successfully",
+      data: finalUpdatedBooking,
     });
+    
   } catch (error) {
+    console.log(error);
     next(error);
   }
 };
+
+// Helper function to calculate due amount
+function calculateDueAmount(beforeDiscountCost, discountPercentage, discountFlat, paidAmount) {
+  // Calculate discount amount from percentage
+  const percentageDiscount = beforeDiscountCost * (discountPercentage || 0) / 100;
+  
+  // Apply both percentage and flat discounts
+  const afterDiscountCost = beforeDiscountCost - percentageDiscount - (discountFlat || 0);
+  
+  // Calculate due amount (cannot be negative)
+  return Math.max(0, afterDiscountCost - paidAmount);
+}

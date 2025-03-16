@@ -28,7 +28,12 @@ app.use("/api/rooms", rooms);
 app.use("/api/bookings", bookings);
 app.use("/api/onlinebooking", onlinebooking);
 app.use("/api/customers", customers);
+
+
+// report
 app.use("/api/reports", reports);
+
+
 app.use("/api/contacts", contacts);
 app.use("/api/daylong", daylong);
 app.use("/api/corporate", corporate);
