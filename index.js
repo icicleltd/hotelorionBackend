@@ -14,6 +14,7 @@ const daylong = require("./routes/Daylong");
 const corporate = require("./routes/corporateBookings");
 const { connectDb } = require("./utils/dbConnect");
 const bookingGuestRoute = require("./modules/BookingGuest/bookingGuest.routes");
+const housekeepingRouter = require("./routes/housekeeping");
 
 //middleWire
 app.use(cors());
@@ -29,10 +30,11 @@ app.use("/api/bookings", bookings);
 app.use("/api/onlinebooking", onlinebooking);
 app.use("/api/customers", customers);
 
-
 // report
 app.use("/api/reports", reports);
 
+// housekeeping
+app.use("/api/housekeeping", housekeepingRouter);
 
 app.use("/api/contacts", contacts);
 app.use("/api/daylong", daylong);

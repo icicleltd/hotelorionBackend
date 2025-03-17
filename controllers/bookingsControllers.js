@@ -3,6 +3,7 @@ const Customers = require("../models/CustomersModel");
 const Daylong = require("../models/DaylongModel");
 const OnlineBooking = require("../models/OnlineBookingModel");
 const Bookings = require("../models/bookingsModel");
+const HouseKeepingModel = require("../models/housekeepingModel");
 
 exports.createbookings = async (req, res, next) => {
   try {
@@ -176,25 +177,37 @@ exports.roomsColorStatus = async (req, res, next) => {
       isBookings: true,
     });
 
+    // Fetch housekeeping rooms that are being cleaned
+    const housekeepingRooms = await HouseKeepingModel.find({
+      isCleaning: true
+    });
+    
+    // console.log(housekeepingRooms);
+
     // Initialize room category arrays
     const registeredAndTodayCheckout = [];
     const registeredAndNotTodayCheckout = [];
     const previousRegisteredAndNotTodayCheckout = [];
     const bookingRooms = [];
+    const housekeepingAllRooms = [];
+
+    // Process housekeeping rooms
+    housekeepingRooms.forEach((room) => {
+      if (room.roomName) {
+        housekeepingAllRooms.push(room.roomName);
+      }
+    });
 
     // Helper function to process room numbers
     const processRoomNumbers = (booking, roomNumbers) => {
       if (booking.isTodayCheckout === true) {
-        // If registered and checking out today
         registeredAndTodayCheckout.push(...roomNumbers);
       } else if (booking.firstDate === todayFormatted) {
-        // If check-in is today
         registeredAndNotTodayCheckout.push(...roomNumbers);
       } else if (
         booking.firstDate < todayFormatted &&
         booking.lastDate > todayFormatted
       ) {
-        // If stay spans across today (checked in before, checking out after)
         previousRegisteredAndNotTodayCheckout.push(...roomNumbers);
       }
     };
@@ -204,7 +217,6 @@ exports.roomsColorStatus = async (req, res, next) => {
       if (Array.isArray(booking.roomNumber)) {
         processRoomNumbers(booking, booking.roomNumber);
       } else if (typeof booking.roomNumber === "string") {
-        // Handle case where roomNumber might be a comma-separated string
         const roomNumbers = booking.roomNumber
           .split(",")
           .map((room) => room.trim());
@@ -242,6 +254,7 @@ exports.roomsColorStatus = async (req, res, next) => {
       ...new Set(previousRegisteredAndNotTodayCheckout),
     ];
     const uniqueBookingRooms = [...new Set(bookingRooms)];
+    const uniqueHousekeepingRooms = [...new Set(housekeepingAllRooms)];
 
     // Create the roomsColor object
     const roomsColor = {
@@ -250,6 +263,7 @@ exports.roomsColorStatus = async (req, res, next) => {
       previousRegisteredAndNotTodayCheckout:
         uniquePreviousRegisteredAndNotTodayCheckout,
       bookingRooms: uniqueBookingRooms,
+      housekeepingRooms: uniqueHousekeepingRooms, // Added housekeeping rooms
       currentDate: formattedDateString,
       formattedForQueries: todayFormatted,
     };
