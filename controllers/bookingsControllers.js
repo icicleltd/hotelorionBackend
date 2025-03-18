@@ -3,6 +3,7 @@ const Customers = require("../models/CustomersModel");
 const Daylong = require("../models/DaylongModel");
 const OnlineBooking = require("../models/OnlineBookingModel");
 const Bookings = require("../models/bookingsModel");
+const ComplaintRoomModel = require("../models/complaintRoomModel");
 const HouseKeepingModel = require("../models/housekeepingModel");
 
 exports.createbookings = async (req, res, next) => {
@@ -182,7 +183,10 @@ exports.roomsColorStatus = async (req, res, next) => {
       isCleaning: true
     });
     
-    // console.log(housekeepingRooms);
+    // Fetch rooms with complaints
+    const complaintRooms = await ComplaintRoomModel.find({
+      isComplaints: true
+    });
 
     // Initialize room category arrays
     const registeredAndTodayCheckout = [];
@@ -190,11 +194,40 @@ exports.roomsColorStatus = async (req, res, next) => {
     const previousRegisteredAndNotTodayCheckout = [];
     const bookingRooms = [];
     const housekeepingAllRooms = [];
+    const complaintsAllRooms = []; // New array for complaint rooms
 
     // Process housekeeping rooms
     housekeepingRooms.forEach((room) => {
       if (room.roomName) {
-        housekeepingAllRooms.push(room.roomName);
+        // Check if roomName is an array and handle accordingly
+        if (Array.isArray(room.roomName)) {
+          housekeepingAllRooms.push(...room.roomName); // Spread the array
+        } else if (typeof room.roomName === 'string') {
+          // If it's a string, just add it directly
+          housekeepingAllRooms.push(room.roomName);
+        }
+      }
+    });
+
+    // Process complaint rooms
+    complaintRooms.forEach((item) => {
+      if (item.complaintRooms) {
+        if (Array.isArray(item.complaintRooms)) {
+          // Handle nested arrays by flattening them
+          item.complaintRooms.forEach(room => {
+            if (Array.isArray(room)) {
+              complaintsAllRooms.push(...room);
+            } else {
+              complaintsAllRooms.push(room);
+            }
+          });
+        } else if (typeof item.complaintRooms === 'string') {
+          // Handle comma-separated room numbers if stored as string
+          const roomNumbers = item.complaintRooms
+            .split(",")
+            .map((room) => room.trim());
+          complaintsAllRooms.push(...roomNumbers);
+        }
       }
     });
 
@@ -255,6 +288,7 @@ exports.roomsColorStatus = async (req, res, next) => {
     ];
     const uniqueBookingRooms = [...new Set(bookingRooms)];
     const uniqueHousekeepingRooms = [...new Set(housekeepingAllRooms)];
+    const uniqueComplaintRooms = [...new Set(complaintsAllRooms)]; // Remove duplicates from complaint rooms
 
     // Create the roomsColor object
     const roomsColor = {
@@ -263,7 +297,8 @@ exports.roomsColorStatus = async (req, res, next) => {
       previousRegisteredAndNotTodayCheckout:
         uniquePreviousRegisteredAndNotTodayCheckout,
       bookingRooms: uniqueBookingRooms,
-      housekeepingRooms: uniqueHousekeepingRooms, // Added housekeeping rooms
+      housekeepingRooms: uniqueHousekeepingRooms,
+      complaintRooms: uniqueComplaintRooms, // Added complaint rooms
       currentDate: formattedDateString,
       formattedForQueries: todayFormatted,
     };
@@ -329,7 +364,7 @@ exports.getbookingsbyroomNumber = async (req, res, next) => {
         return booking?.roomNumber?.includes(roomnumber);
       }
 
-      console.log(filteredBookings);
+      // console.log(filteredBookings);
       if (Array.isArray(booking?.roomsNumber)) {
         return booking?.roomsNumber?.includes(roomnumber);
       }
@@ -615,7 +650,7 @@ exports.updatenightstayaddons = async (req, res, next) => {
 exports.updatedBookingInfo = async (req, res, next) => {
   try {
     const { bookingId, payment, ...otherUpdateData } = req.body;
-    console.log(bookingId, payment)
+    // console.log(bookingId, payment)
     
     // First, find the existing booking to get current payment array
     const existingBooking = await Bookings.findOne({ bookingId });

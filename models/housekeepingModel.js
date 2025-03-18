@@ -8,7 +8,7 @@ const housekeepingSchema = new Schema(
       // required: true,
     },
     roomName: {
-      type: String, // Fixed "trype" to "type"
+      type: [String], // Fixed "trype" to "type"
       // required: [true, "roomName is required"],
     },
     workingItem: {
