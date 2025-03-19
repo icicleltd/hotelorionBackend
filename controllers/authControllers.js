@@ -36,7 +36,7 @@ exports.login = async (req, res, next) => {
       expiresIn: "1d",
     });
 
-    const { password, isAdmin, ...others } = user._doc;
+    const { password,  ...others } = user._doc;
     res.status(200).json({ ...others, token });
   } catch (error) {
     console.log(error);
