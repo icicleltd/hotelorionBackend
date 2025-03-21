@@ -44,8 +44,10 @@ exports.changeseenbookings = async (req, res, next) => {
 
 exports.deleteOnlineBooking = async (req, res, next) => {
   try {
-    const id = req.params.id;
-    const deletedBooking = await OnlineBooking.findByIdAndDelete(id);
+    const roomNumber = req.params.roomNumber;
+    // console.log(roomNumber)
+    const deletedBooking = await OnlineBooking.findOneAndDelete({roomNumber});
+    // console.log(deletedBooking)
 
     if (!deletedBooking) {
       return res.status(404).json({

@@ -10,6 +10,6 @@ const router = express.Router();
 router.post("/add-onlinebookings", createonlinebookings);
 router.get("/allonlinebookings", getonlonebookings);
 router.put("/changeseenbookings/:id", changeseenbookings);
-router.delete("/allonlinebookings/:id", deleteOnlineBooking)
+router.delete("/allonlinebookings/:roomNumber", deleteOnlineBooking)
 
 module.exports = router;
