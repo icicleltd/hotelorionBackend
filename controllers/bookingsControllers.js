@@ -103,18 +103,18 @@ exports.roomsColorStatus = async (req, res, next) => {
   try {
     // Extract date parameter properly
     const dateParam = req.params.date;
-    
+
     // Create a valid Date object based on the parameter or use current date
     let currentDate;
     if (dateParam) {
       // If date parameter is provided, create a date from it
       currentDate = new Date(dateParam);
-      
+
       // Check if the date is valid
       if (isNaN(currentDate.getTime())) {
         return res.status(400).json({
           success: false,
-          message: "Invalid date format. Please use YYYY-MM-DD format."
+          message: "Invalid date format. Please use YYYY-MM-DD format.",
         });
       }
     } else {
@@ -132,7 +132,7 @@ exports.roomsColorStatus = async (req, res, next) => {
       minute: "2-digit",
       second: "2-digit",
     }).format(currentDate);
-    
+
     // Parse the formatted date string back to a Date object
     // Format is MM/DD/YYYY, HH:MM:SS AM/PM
     const parts = formattedDateString.split(", ");
@@ -180,12 +180,12 @@ exports.roomsColorStatus = async (req, res, next) => {
 
     // Fetch housekeeping rooms that are being cleaned
     const housekeepingRooms = await HouseKeepingModel.find({
-      isCleaning: true
+      isCleaning: true,
     });
-    
+
     // Fetch rooms with complaints
     const complaintRooms = await ComplaintRoomModel.find({
-      isComplaints: true
+      isComplaints: true,
     });
 
     // Initialize room category arrays
@@ -202,7 +202,7 @@ exports.roomsColorStatus = async (req, res, next) => {
         // Check if roomName is an array and handle accordingly
         if (Array.isArray(room.roomName)) {
           housekeepingAllRooms.push(...room.roomName); // Spread the array
-        } else if (typeof room.roomName === 'string') {
+        } else if (typeof room.roomName === "string") {
           // If it's a string, just add it directly
           housekeepingAllRooms.push(room.roomName);
         }
@@ -214,14 +214,14 @@ exports.roomsColorStatus = async (req, res, next) => {
       if (item.complaintRooms) {
         if (Array.isArray(item.complaintRooms)) {
           // Handle nested arrays by flattening them
-          item.complaintRooms.forEach(room => {
+          item.complaintRooms.forEach((room) => {
             if (Array.isArray(room)) {
               complaintsAllRooms.push(...room);
             } else {
               complaintsAllRooms.push(room);
             }
           });
-        } else if (typeof item.complaintRooms === 'string') {
+        } else if (typeof item.complaintRooms === "string") {
           // Handle comma-separated room numbers if stored as string
           const roomNumbers = item.complaintRooms
             .split(",")
@@ -651,10 +651,10 @@ exports.updatedBookingInfo = async (req, res, next) => {
   try {
     const { bookingId, payment, ...otherUpdateData } = req.body;
     // console.log(bookingId, payment)
-    
+
     // First, find the existing booking to get current payment array
     const existingBooking = await Bookings.findOne({ bookingId });
-    
+
     if (!existingBooking) {
       return res.status(404).json({
         message: "Booking not found",
@@ -662,7 +662,7 @@ exports.updatedBookingInfo = async (req, res, next) => {
     }
 
     let updateData = { ...otherUpdateData };
-    
+
     // If payment data is provided, add it to the existing payments array
     if (payment) {
       // Use $push to add the new payment to the existing payment array
@@ -672,30 +672,110 @@ exports.updatedBookingInfo = async (req, res, next) => {
         { new: false }
       );
     }
-    
+
     // Update all other booking information if there's any
     if (Object.keys(updateData).length > 0) {
-      await Bookings.findOneAndUpdate(
-        { bookingId },
-        updateData,
-        { new: false }
-      );
+      await Bookings.findOneAndUpdate({ bookingId }, updateData, {
+        new: false,
+      });
     }
-    
+
     // Get the updated booking data to return
     const updatedBooking = await Bookings.findOne({ bookingId });
-    
+
     // Calculate total paid amount from all payments
     const totalPaidAmount = updatedBooking.payment.reduce((total, pay) => {
       return total + (pay.amount || 0);
     }, 0);
-    
+
     // Update paidAmount field to reflect the total of all payments
     await Bookings.findOneAndUpdate(
       { bookingId },
-      { 
+      {
         paidAmount: totalPaidAmount,
         // Recalculate dueAmount based on beforeDiscountCost, discounts, and paid amount
+        dueAmount: calculateDueAmount(
+          updatedBooking.beforeDiscountCost,
+          updatedBooking.discountPercentage,
+          updatedBooking.discountFlat,
+          totalPaidAmount
+        ),
+      },
+      { new: true }
+    );
+
+    // Get the final updated booking
+    const finalUpdatedBooking = await Bookings.findOne({ bookingId });
+
+    res.status(200).json({
+      message: "Booking updated successfully",
+      data: finalUpdatedBooking,
+    });
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+};
+
+// Helper function to calculate due amount
+function calculateDueAmount(
+  beforeDiscountCost,
+  discountPercentage,
+  discountFlat,
+  paidAmount
+) {
+  // Calculate discount amount from percentage
+  const percentageDiscount =
+    (beforeDiscountCost * (discountPercentage || 0)) / 100;
+
+  // Apply both percentage and flat discounts
+  const afterDiscountCost =
+    beforeDiscountCost - percentageDiscount - (discountFlat || 0);
+
+  // Calculate due amount (cannot be negative)
+  return Math.max(0, afterDiscountCost - paidAmount);
+}
+
+exports.updatepayment = async (req, res, next) => {
+  try {
+    const payment = req.body;
+    const bookingId = req.params.id;
+
+    console.log("Payment data:", payment);
+
+    // Verify that payment data is provided
+    if (!payment || !payment.amount) {
+      return res.status(400).json({
+        message: "Valid payment data with amount is required",
+      });
+    }
+
+    // Find the existing booking
+    const existingBooking = await Bookings.findById(bookingId);
+    
+    if (!existingBooking) {
+      return res.status(404).json({
+        message: "Booking not found",
+      });
+    }
+
+    // Add the new payment to the payment array
+    const updatedBooking = await Bookings.findByIdAndUpdate(
+      bookingId,
+      { $push: { payment: payment } },
+      { new: true }
+    );
+    
+    // Calculate total paid amount from all payments
+    const totalPaidAmount = updatedBooking.payment.reduce((total, pay) => {
+      return total + (Number(pay.amount) || 0);
+    }, 0);
+    
+    // Update paidAmount and dueAmount in a single operation
+    const finalUpdatedBooking = await Bookings.findByIdAndUpdate(
+      bookingId,
+      { 
+        paidAmount: totalPaidAmount,
         dueAmount: calculateDueAmount(
           updatedBooking.beforeDiscountCost,
           updatedBooking.discountPercentage,
@@ -706,28 +786,25 @@ exports.updatedBookingInfo = async (req, res, next) => {
       { new: true }
     );
     
-    // Get the final updated booking
-    const finalUpdatedBooking = await Bookings.findOne({ bookingId });
-    
     res.status(200).json({
-      message: "Booking updated successfully",
+      success: true,
+      message: "Payment updated successfully",
       data: finalUpdatedBooking,
     });
     
   } catch (error) {
-    console.log(error);
+    console.log("Payment update error:", error);
     next(error);
   }
 };
 
-// Helper function to calculate due amount
+// Helper function for calculating due amount
 function calculateDueAmount(beforeDiscountCost, discountPercentage, discountFlat, paidAmount) {
-  // Calculate discount amount from percentage
-  const percentageDiscount = beforeDiscountCost * (discountPercentage || 0) / 100;
+  // Calculate the final cost after applying discounts
+  const percentageDiscount = (beforeDiscountCost * (discountPercentage || 0)) / 100;
+  const totalDiscount = percentageDiscount + (discountFlat || 0);
+  const finalCost = beforeDiscountCost - totalDiscount;
   
-  // Apply both percentage and flat discounts
-  const afterDiscountCost = beforeDiscountCost - percentageDiscount - (discountFlat || 0);
-  
-  // Calculate due amount (cannot be negative)
-  return Math.max(0, afterDiscountCost - paidAmount);
+  // Due amount is the remaining balance
+  return Math.max(0, finalCost - paidAmount);
 }
