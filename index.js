@@ -16,6 +16,7 @@ const { connectDb } = require("./utils/dbConnect");
 const bookingGuestRoute = require("./modules/BookingGuest/bookingGuest.routes");
 const housekeepingRouter = require("./routes/housekeeping");
 const complaintsRouter = require("./routes/complaintRoutes");
+const LogBookRoutes = require("./modules/LogBook/logbook.routes");
 
 //middleWire
 app.use(cors());
@@ -37,9 +38,8 @@ app.use("/api/reports", reports);
 // housekeeping
 app.use("/api/housekeeping", housekeepingRouter);
 
-
 // complaints
-app.use("/api/complaints", complaintsRouter)
+app.use("/api/complaints", complaintsRouter);
 
 app.use("/api/contacts", contacts);
 app.use("/api/daylong", daylong);
@@ -47,6 +47,7 @@ app.use("/api/corporate", corporate);
 
 // updated
 app.use("/api/booking-guest", bookingGuestRoute);
+app.use("/api/logbooks", LogBookRoutes);
 
 app.get("/", async (req, res) => {
   res.status(200).json({
