@@ -42,6 +42,9 @@ exports.getLiveReport = async (req, res, next) => {
       createdAt: { $gte: today, $lte: endOfDay },
     });
 
+    // Find all bookings (we'll filter payments by date later)
+    const allBookings = await Bookings.find({});
+
     // Find bookings created today
     const todayBookings = await Bookings.find({
       createdAt: { $gte: today, $lte: endOfDay },
@@ -60,9 +63,14 @@ exports.getLiveReport = async (req, res, next) => {
     const customerRevenue = todayCustomers.reduce((sum, customer) => {
       // Check if the customer has payment information
       if (customer.payment && Array.isArray(customer.payment)) {
-        // Sum up all payment amounts
+        // Sum up all payment amounts for today
         const customerTotal = customer.payment.reduce((paymentSum, payment) => {
-          return paymentSum + (payment.amount || 0);
+          const paymentDate = new Date(payment.paymentDate);
+          // Check if payment date is today
+          if (paymentDate >= today && paymentDate <= endOfDay) {
+            return paymentSum + (payment.amount || 0);
+          }
+          return paymentSum;
         }, 0);
         return sum + customerTotal;
       }
@@ -72,9 +80,37 @@ exports.getLiveReport = async (req, res, next) => {
       }
       return sum;
     }, 0);
+    
+    // Calculate payments made today from ALL bookings (not just today's bookings)
+    const todayPayments = allBookings.reduce((sum, booking) => {
+      if (booking.payment && Array.isArray(booking.payment)) {
+        // Sum up all payment amounts made today
+        const bookingPaymentsToday = booking.payment.reduce((paymentSum, payment) => {
+          const paymentDate = new Date(payment.paymentDate);
+          // Check if payment date is today
+          if (paymentDate >= today && paymentDate <= endOfDay) {
+            return paymentSum + (payment.amount || 0);
+          }
+          return paymentSum;
+        }, 0);
+        return sum + bookingPaymentsToday;
+      }
+      return sum;
+    }, 0);
 
-    // Calculate total revenue (from both sources)
-    const totalRevenue = newRoomAmount + customerRevenue;
+    // Calculate total revenue (including payments made today)
+    const totalRevenue = todayPayments + customerRevenue;
+
+    // Get bookings with payments made today
+    const bookingsWithTodayPayments = allBookings.filter(booking => {
+      if (booking.payment && Array.isArray(booking.payment)) {
+        return booking.payment.some(payment => {
+          const paymentDate = new Date(payment.paymentDate);
+          return paymentDate >= today && paymentDate <= endOfDay;
+        });
+      }
+      return false;
+    });
 
     // Get the data for response
     const liveReportData = {
@@ -83,9 +119,11 @@ exports.getLiveReport = async (req, res, next) => {
       bookingsCount,
       newRoomAmount,
       customerRevenue,
+      todayPayments,
       totalRevenue,
       recentCustomers: todayCustomers,
       recentBookings: todayBookings,
+      bookingsWithTodayPayments: bookingsWithTodayPayments
     };
 
     res.status(200).json({
