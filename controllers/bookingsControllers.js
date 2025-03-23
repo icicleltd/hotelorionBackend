@@ -741,8 +741,6 @@ exports.updatepayment = async (req, res, next) => {
     const payment = req.body;
     const bookingId = req.params.id;
 
-    console.log("Payment data:", payment);
-
     // Verify that payment data is provided
     if (!payment || !payment.amount) {
       return res.status(400).json({
@@ -752,7 +750,7 @@ exports.updatepayment = async (req, res, next) => {
 
     // Find the existing booking
     const existingBooking = await Bookings.findById(bookingId);
-    
+
     if (!existingBooking) {
       return res.status(404).json({
         message: "Booking not found",
@@ -765,33 +763,32 @@ exports.updatepayment = async (req, res, next) => {
       { $push: { payment: payment } },
       { new: true }
     );
-    
+
     // Calculate total paid amount from all payments
     const totalPaidAmount = updatedBooking.payment.reduce((total, pay) => {
       return total + (Number(pay.amount) || 0);
     }, 0);
-    
+
     // Update paidAmount and dueAmount in a single operation
     const finalUpdatedBooking = await Bookings.findByIdAndUpdate(
       bookingId,
-      { 
+      {
         paidAmount: totalPaidAmount,
         dueAmount: calculateDueAmount(
           updatedBooking.beforeDiscountCost,
           updatedBooking.discountPercentage,
           updatedBooking.discountFlat,
           totalPaidAmount
-        )
+        ),
       },
       { new: true }
     );
-    
+
     res.status(200).json({
       success: true,
       message: "Payment updated successfully",
       data: finalUpdatedBooking,
     });
-    
   } catch (error) {
     console.log("Payment update error:", error);
     next(error);
@@ -799,12 +796,18 @@ exports.updatepayment = async (req, res, next) => {
 };
 
 // Helper function for calculating due amount
-function calculateDueAmount(beforeDiscountCost, discountPercentage, discountFlat, paidAmount) {
+function calculateDueAmount(
+  beforeDiscountCost,
+  discountPercentage,
+  discountFlat,
+  paidAmount
+) {
   // Calculate the final cost after applying discounts
-  const percentageDiscount = (beforeDiscountCost * (discountPercentage || 0)) / 100;
+  const percentageDiscount =
+    (beforeDiscountCost * (discountPercentage || 0)) / 100;
   const totalDiscount = percentageDiscount + (discountFlat || 0);
   const finalCost = beforeDiscountCost - totalDiscount;
-  
+
   // Due amount is the remaining balance
   return Math.max(0, finalCost - paidAmount);
 }
