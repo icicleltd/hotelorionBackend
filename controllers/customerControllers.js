@@ -40,6 +40,49 @@ exports.getTodayCheckouts = async (req, res, next) => {
     next(error);
   }
 };
+exports.getTodayCheckoutCount = async (req, res, next) => {
+  try {
+    // Get today's date range
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); 
+
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const todayCheckouts = await Customers.find({
+      // Option 1: If you have a specific checkout timestamp field
+      // checkOutTime: { $gte: today, $lte: endOfDay }
+
+      // Option 2: If you use the "checkIn" status field
+      checkIn: "Checked Out",
+      updatedAt: { $gte: today, $lte: endOfDay },
+    });
+
+    const result = todayCheckouts.reduce((acc, customer) => {
+      if (!acc[customer.roomNumber]) {
+        acc[customer.roomNumber] = 1;
+      } else {
+        acc[customer.roomNumber] += 1;
+      }
+      return acc;
+    }, {});
+
+    const checkoutCount = Object.keys(result).map((roomNumber) => ({
+      roomNumber,
+      count: result[roomNumber],
+    }));
+
+    res.status(200).json({
+      success: true,
+      status: 200,
+      message: "Today's checkouts count retrieved successfully",
+      count: checkoutCount.length,
+      data: checkoutCount,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 exports.deleteCustomer = async (req, res, next) => {
   try {
