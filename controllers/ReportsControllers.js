@@ -139,24 +139,42 @@ exports.getLiveReport = async (req, res, next) => {
 
 exports.getDailyReport = async (req, res, next) => {
   try {
+    // Import date-fns functions
+    const { startOfDay, endOfDay, subDays, format, parseISO } = require('date-fns');
+    
     // Get the current date or use provided date from request
     const requestDate = req.query.date ? new Date(req.query.date) : new Date();
-    const targetDate = new Date(requestDate);
-    targetDate.setHours(0, 0, 0, 0); // Set to start of the day
+    
+    // Get the previous day (full 24 hours)
+    const previousDay = subDays(startOfDay(requestDate), 1);
+    const previousDayEnd = endOfDay(previousDay);
 
-    // Set end of day time
-    const endOfDay = new Date(targetDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    console.log(`Fetching report for previous day: ${format(previousDay, 'yyyy-MM-dd')} (${previousDay.toISOString()} to ${previousDayEnd.toISOString()})`);
 
-    // Find customers created on the target date
+    // Find customers created on the previous day
     const todayCustomers = await Customers.find({
-      createdAt: { $gte: targetDate, $lte: endOfDay },
+      createdAt: { $gte: previousDay, $lte: previousDayEnd },
     });
 
-    // Find bookings created on the target date
+    // Find bookings created on the previous day
     const todayBookings = await Bookings.find({
-      createdAt: { $gte: targetDate, $lte: endOfDay },
+      $or: [
+        // Created on previous day
+        { createdAt: { $gte: previousDay, $lte: previousDayEnd } },
+        // Or has payment on the previous day
+        {
+          "payment.paymentDate": { 
+            $gte: previousDay.toISOString(), 
+            $lte: previousDayEnd.toISOString() 
+          }
+        }
+      ]
     });
+
+    console.log(`Found ${todayBookings.length} bookings and ${todayCustomers.length} customers for ${format(previousDay, 'yyyy-MM-dd')}`);
+
+    // Log booking data for inspection
+    console.log(`First booking sample:`, JSON.stringify(todayBookings[0], null, 2));
 
     // Get count of customers and bookings
     const customersCount = todayCustomers.length;
@@ -172,95 +190,36 @@ exports.getDailyReport = async (req, res, next) => {
       duePaymentAmount: 0,
     };
 
-    // Process bookings to calculate payment method totals
-    todayBookings.forEach((booking) => {
-      // Add to total amount (paid + due)
-      const paidAmount = booking.paidAmount || 0;
-      const dueAmount = booking.dueAmount || 0;
-      
-      paymentSummary.totalAmount += paidAmount;
-      paymentSummary.duePaymentAmount += dueAmount;
-      
-      // Process payment array to categorize by payment method
-      if (booking.payment && Array.isArray(booking.payment)) {
-        booking.payment.forEach(payment => {
-          const amount = payment.amount || 0;
-          const method = payment.paymentmethod?.toLowerCase() || '';
-          
-          if (method.includes('cash')) {
-            paymentSummary.cashAmount += amount;
-          } else if (method.includes('bkash')) {
-            paymentSummary.bkashAmount += amount;
-          } else if (method.includes('card')) {
-            paymentSummary.creditCardAmount += amount;
-          } else if (method.includes('bank') || method.includes('transfer')) {
-            paymentSummary.bankTransferAmount += amount;
-          }
-        });
-      } else {
-        // Default to cash if no payment array but has paid amount
-        if (paidAmount > 0) {
-          paymentSummary.cashAmount += paidAmount;
-        }
-      }
-    });
-
-    // Process customers with payment information
-    todayCustomers.forEach((customer) => {
-      // Process payment array if exists
-      if (customer.payment && Array.isArray(customer.payment)) {
-        customer.payment.forEach((payment) => {
-          const amount = payment.amount || 0;
-          paymentSummary.totalAmount += amount;
-
-          // Categorize by payment method
-          switch (payment.method?.toLowerCase()) {
-            case "cash":
-              paymentSummary.cashAmount += amount;
-              break;
-            case "bank":
-            case "bank transfer":
-              paymentSummary.bankTransferAmount += amount;
-              break;
-            case "card":
-            case "credit card":
-              paymentSummary.creditCardAmount += amount;
-              break;
-            case "bkash":
-              paymentSummary.bkashAmount += amount;
-              break;
-            case "due":
-            case "due payment":
-              paymentSummary.duePaymentAmount += amount;
-              break;
-            default:
-              // Default to cash if method not specified
-              paymentSummary.cashAmount += amount;
-          }
-        });
-      }
-      // If customer has direct paidAmount but no payment array
-      else if (customer.paidAmount) {
-        const amount = customer.paidAmount;
-        paymentSummary.totalAmount += amount;
-        paymentSummary.cashAmount += amount; // Default to cash
-      }
-    });
-
-    // Room type mapping function
+    // Room type mapping function - modified to be more flexible
     const getRoomTypeAbbreviation = (roomType) => {
       if (!roomType) return '';
       
-      const type = roomType.toLowerCase();
-      if (type.includes('deluxe single') || type.includes('deluxe couple')) return 'DS';
-      if (type.includes('deluxe twin')) return 'DT';
-      if (type.includes('orion suite')) return 'OS';
-      if (type.includes('executive suite')) return 'ES';
-      if (type.includes('royal suite')) return 'RS';
-      return '';
+      try {
+        const type = String(roomType).toLowerCase();
+        console.log(`Matching room type: "${type}"`);
+        
+        if (type.includes('deluxe single') || type.includes('deluxe couple') || type === 'ds') return 'DS';
+        if (type.includes('deluxe twin') || type === 'dt') return 'DT';
+        if (type.includes('orion suite') || type === 'os') return 'OS';
+        if (type.includes('executive suite') || type === 'es') return 'ES';
+        if (type.includes('royal suite') || type === 'rs') return 'RS';
+        
+        // More flexible matching
+        if (type.includes('deluxe')) return 'DS';
+        if (type.includes('twin')) return 'DT';
+        if (type.includes('orion')) return 'OS';
+        if (type.includes('executive')) return 'ES';
+        if (type.includes('royal')) return 'RS';
+        
+        console.log(`Could not match "${type}" to any room type`);
+        return '';
+      } catch (err) {
+        console.log(`Error processing room type: ${err.message}`);
+        return '';
+      }
     };
 
-    // Count rooms by type
+    // Count rooms by type (only for bookings created on the previous day)
     const roomStats = {
       DS: 0, // Deluxe Single/Couple
       DT: 0, // Deluxe Twin
@@ -270,30 +229,198 @@ exports.getDailyReport = async (req, res, next) => {
       total: 0 // Total rooms booked
     };
 
-    // Process each booking to count room types
+    // Process bookings to calculate payment method totals for the previous day
     todayBookings.forEach((booking) => {
-      // Skip if no bookingroom array
-      if (!booking.bookingroom || !Array.isArray(booking.bookingroom)) return;
+      // We'll only count payments made on the previous day
+      if (booking.payment && Array.isArray(booking.payment)) {
+        booking.payment.forEach(payment => {
+          const paymentDate = new Date(payment.paymentDate);
+          // Only include payments made on the previous day
+          if (paymentDate >= previousDay && paymentDate <= previousDayEnd) {
+            const amount = payment.amount || 0;
+            const method = payment.paymentmethod?.toLowerCase() || '';
+            
+            // Add to total amount
+            paymentSummary.totalAmount += amount;
+            
+            if (method.includes('cash')) {
+              paymentSummary.cashAmount += amount;
+            } else if (method.includes('bkash')) {
+              paymentSummary.bkashAmount += amount;
+            } else if (method.includes('card')) {
+              paymentSummary.creditCardAmount += amount;
+            } else if (method.includes('bank') || method.includes('transfer')) {
+              paymentSummary.bankTransferAmount += amount;
+            }
+          }
+        });
+      }
+
+      // Add due amounts for bookings created on the previous day
+      if (new Date(booking.createdAt) >= previousDay && new Date(booking.createdAt) <= previousDayEnd) {
+        const dueAmount = booking.dueAmount || 0;
+        paymentSummary.duePaymentAmount += dueAmount;
+      }
+    });
+
+    // Process customers with payment information
+    todayCustomers.forEach((customer) => {
+      // Process payment array if exists
+      if (customer.payment && Array.isArray(customer.payment)) {
+        customer.payment.forEach((payment) => {
+          const paymentDate = new Date(payment.paymentDate);
+          // Only include payments made on the previous day
+          if (paymentDate >= previousDay && paymentDate <= previousDayEnd) {
+            const amount = payment.amount || 0;
+            paymentSummary.totalAmount += amount;
+
+            // Categorize by payment method
+            const method = payment.method?.toLowerCase() || '';
+            if (method.includes('cash')) {
+              paymentSummary.cashAmount += amount;
+            } else if (method.includes('bkash')) {
+              paymentSummary.bkashAmount += amount;
+            } else if (method.includes('card') || method.includes('credit')) {
+              paymentSummary.creditCardAmount += amount;
+            } else if (method.includes('bank') || method.includes('transfer')) {
+              paymentSummary.bankTransferAmount += amount;
+            } else if (method.includes('due')) {
+              paymentSummary.duePaymentAmount += amount;
+            } else {
+              // Default to cash if method not specified
+              paymentSummary.cashAmount += amount;
+            }
+          }
+        });
+      }
+      // If customer has direct paidAmount but no payment array
+      else if (customer.paidAmount && new Date(customer.createdAt) >= previousDay && new Date(customer.createdAt) <= previousDayEnd) {
+        const amount = customer.paidAmount;
+        paymentSummary.totalAmount += amount;
+        paymentSummary.cashAmount += amount; // Default to cash
+      }
       
-      // Process each room in the booking
-      booking.bookingroom.forEach(roomType => {
+      // Check if customer has room information to include in room stats
+      if (customer.roomType) {
+        // Handle single room type
+        const roomType = typeof customer.roomType === 'string' ? customer.roomType : '';
         const abbr = getRoomTypeAbbreviation(roomType);
         if (abbr && roomStats.hasOwnProperty(abbr)) {
           roomStats[abbr]++;
           roomStats.total++;
         }
-      });
+      } else if (customer.roomTypes && Array.isArray(customer.roomTypes)) {
+        // Handle multiple room types
+        customer.roomTypes.forEach(roomType => {
+          const abbr = getRoomTypeAbbreviation(roomType);
+          if (abbr && roomStats.hasOwnProperty(abbr)) {
+            roomStats[abbr]++;
+            roomStats.total++;
+          }
+        });
+      }
     });
+
+    // Process each booking to count room types - with additional special case handling
+    console.log('Processing room types from bookings...');
+    todayBookings.forEach((booking, index) => {
+      console.log(`Processing booking ${booking.bookingId}:`, JSON.stringify(booking.bookingroom));
+      
+      // Check for bookingroom array first
+      if (booking.bookingroom && Array.isArray(booking.bookingroom) && booking.bookingroom.length > 0) {
+        console.log(`Booking #${index} (${booking.bookingId}) has bookingroom array`);
+        
+        // Process each room in the booking
+        booking.bookingroom.forEach(roomType => {
+          const abbr = getRoomTypeAbbreviation(roomType);
+          console.log(`  Room type: "${roomType}" maps to abbreviation: "${abbr}"`);
+          
+          if (abbr && roomStats.hasOwnProperty(abbr)) {
+            roomStats[abbr]++;
+            roomStats.total++;
+            console.log(`  Incremented ${abbr} count to ${roomStats[abbr]}`);
+          } else {
+            console.log(`  Could not map "${roomType}" to a valid room abbreviation`);
+          }
+        });
+      } 
+      // Alternative: Check if there's a special roomType array
+      else if (booking.roomType && Array.isArray(booking.roomType) && booking.roomType.length > 0) {
+        console.log(`Booking #${index} (${booking.bookingId}) has roomType array instead:`, booking.roomType);
+        
+        booking.roomType.forEach(roomType => {
+          const abbr = getRoomTypeAbbreviation(roomType);
+          console.log(`  Room type: "${roomType}" maps to abbreviation: "${abbr}"`);
+          
+          if (abbr && roomStats.hasOwnProperty(abbr)) {
+            roomStats[abbr]++;
+            roomStats.total++;
+            console.log(`  Incremented ${abbr} count to ${roomStats[abbr]}`);
+          }
+        });
+      }
+      // Special case: If no room arrays but has firstDate and lastDate, assume it's a valid booking
+      else if (booking.firstDate && booking.lastDate) {
+        // If no room type info but has booking dates, check if there's a default room type
+        console.log(`Booking #${index} (${booking.bookingId}) has no room arrays but has dates, using default detection`);
+        
+        // Try to infer the room type from other data
+        let inferredRoomType = null;
+        
+        if (booking.roomNumber && Array.isArray(booking.roomNumber)) {
+          const roomNum = booking.roomNumber[0];
+          if (roomNum) {
+            console.log(`  Trying to infer room type from room number: ${roomNum}`);
+            // Could add logic here to map room numbers to types if your hotel has a pattern
+            // For now, defaulting to DS as a fallback for any valid booking
+            inferredRoomType = 'DS';
+          }
+        }
+        
+        if (!inferredRoomType && booking.bookingId) {
+          // If we still don't have a room type but it's a valid booking, use DS as default
+          console.log(`  No room type found, using default DS for valid booking`);
+          inferredRoomType = 'DS';
+        }
+        
+        if (inferredRoomType) {
+          const abbr = getRoomTypeAbbreviation(inferredRoomType);
+          if (abbr && roomStats.hasOwnProperty(abbr)) {
+            roomStats[abbr]++;
+            roomStats.total++;
+            console.log(`  Used fallback room type detection. Incremented ${abbr} count to ${roomStats[abbr]}`);
+          }
+        }
+      } else {
+        console.log(`Booking #${index} (${booking.bookingId}) has no usable room information`);
+      }
+    });
+
+    // Log to debugging information
+    console.log('Room stats:', JSON.stringify(roomStats));
+    console.log('Payment summary:', JSON.stringify(paymentSummary));
 
     // Create an array of room types for each booking (for rendering in report)
     let roomTypesMapped = [];
     todayBookings.forEach((booking) => {
-      if (!booking.bookingroom || !Array.isArray(booking.bookingroom)) return;
+      // Try to get room types from bookingroom array
+      let bookingRoomTypes = [];
       
-      // Map room types to abbreviations
-      const bookingRoomTypes = booking.bookingroom.map(roomType => 
-        getRoomTypeAbbreviation(roomType)
-      ).filter(abbr => abbr); // Filter out empty abbreviations
+      if (booking.bookingroom && Array.isArray(booking.bookingroom)) {
+        bookingRoomTypes = booking.bookingroom.map(roomType => 
+          getRoomTypeAbbreviation(roomType)
+        ).filter(abbr => abbr); // Filter out empty abbreviations
+      }
+      // Try alternative roomType array if needed
+      else if (booking.roomType && Array.isArray(booking.roomType)) {
+        bookingRoomTypes = booking.roomType.map(roomType => 
+          getRoomTypeAbbreviation(roomType)
+        ).filter(abbr => abbr);
+      }
+      // Fallback for bookings with dates but no room type info
+      else if (booking.firstDate && booking.lastDate) {
+        bookingRoomTypes = ['DS']; // Default to DS
+      }
       
       // Add booking ID and room types to the mapping
       if (bookingRoomTypes.length > 0) {
@@ -306,19 +433,29 @@ exports.getDailyReport = async (req, res, next) => {
 
     // Prepare the daily report data
     const dailyReportData = {
-      date: targetDate.toISOString().split("T")[0],
+      date: format(previousDay, 'yyyy-MM-dd'),
       customersCount,
       bookingsCount,
       paymentSummary,
       roomStats,
       roomTypesMapped,
       bookings: todayBookings.map((booking) => {
-        // Get room type abbreviations
-        const rtAbbreviations = booking.bookingroom?.map(rt => 
-          getRoomTypeAbbreviation(rt)
-        ).filter(abbr => abbr).join(', ') || '';
+        // Get room type abbreviations - with fallbacks
+        let rtAbbreviations = '';
         
-        // Calculate total payment amounts
+        if (booking.bookingroom && Array.isArray(booking.bookingroom)) {
+          rtAbbreviations = booking.bookingroom.map(rt => 
+            getRoomTypeAbbreviation(rt)
+          ).filter(abbr => abbr).join(', ');
+        } else if (booking.roomType && Array.isArray(booking.roomType)) {
+          rtAbbreviations = booking.roomType.map(rt => 
+            getRoomTypeAbbreviation(rt)
+          ).filter(abbr => abbr).join(', ');
+        } else if (booking.firstDate && booking.lastDate) {
+          rtAbbreviations = 'DS'; // Default
+        }
+        
+        // Calculate total payment amounts for the previous day only
         let cashAmount = 0;
         let bkashAmount = 0;
         let cardAmount = 0;
@@ -327,22 +464,23 @@ exports.getDailyReport = async (req, res, next) => {
         // Process payment array if it exists
         if (booking.payment && Array.isArray(booking.payment)) {
           booking.payment.forEach(payment => {
-            const amount = payment.amount || 0;
-            const method = payment.paymentmethod?.toLowerCase() || '';
-            
-            if (method.includes('cash')) {
-              cashAmount += amount;
-            } else if (method.includes('bkash')) {
-              bkashAmount += amount;
-            } else if (method.includes('card')) {
-              cardAmount += amount;
-            } else if (method.includes('bank')) {
-              bankAmount += amount;
+            const paymentDate = new Date(payment.paymentDate);
+            // Only include payments made on the previous day
+            if (paymentDate >= previousDay && paymentDate <= previousDayEnd) {
+              const amount = payment.amount || 0;
+              const method = payment.paymentmethod?.toLowerCase() || '';
+              
+              if (method.includes('cash')) {
+                cashAmount += amount;
+              } else if (method.includes('bkash')) {
+                bkashAmount += amount;
+              } else if (method.includes('card')) {
+                cardAmount += amount;
+              } else if (method.includes('bank')) {
+                bankAmount += amount;
+              }
             }
           });
-        } else if (booking.paidAmount) {
-          // Default to cash if payment array doesn't exist
-          cashAmount = booking.paidAmount;
         }
         
         return {
@@ -361,16 +499,12 @@ exports.getDailyReport = async (req, res, next) => {
             Math.max(1, Math.ceil(Math.abs(
               new Date(booking.lastDate) - new Date(booking.firstDate)
             ) / (1000 * 60 * 60 * 24))) : 1,
-          remark: booking.checkIn || ''
+          remark: booking.checkIn || '',
+          paymentDates: booking.payment ? booking.payment.map(p => p.paymentDate) : []
         };
       }),
-      // Include summarized customer data (excluding sensitive info)
-      customers: todayCustomers.map((customer) => ({
-        id: customer._id,
-        name: customer.name || customer.customerName,
-        contactInfo: customer.phone || customer.customerNumber || customer.email || '',
-        paidAmount: customer.paidAmount || 0,
-      })),
+      // Include complete customer data
+      customers: todayCustomers,
     };
 
     res.status(200).json({

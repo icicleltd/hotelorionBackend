@@ -117,65 +117,64 @@ exports.getHousekeepingById = async (req, res) => {
 // Update a housekeeping item
 exports.updateHousekeeping = async (req, res) => {
   try {
-    const roomName = req.params.roomName; // Changed from id to roomName
-    const updateData = req.body;
+    const roomName = req.params.roomName;
+    const requestData = req.body;
 
-    // Find the most recent housekeeping record for this room and update it
-    const updatedHousekeeping = await HouseKeepingModel.findOneAndUpdate(
-      { roomName: roomName }, // Search by roomName instead of _id
+    // Find the housekeeping record for this room (we'll delete it after potential complaint processing)
+    const housekeepingRecord = await HouseKeepingModel.findOne(
+      { roomName: roomName },
+      {},
       {
-        roomName: [updateData.roomName || roomName],
-        housekeeperName: updateData.housekeeperName || "",
-        workingItem: updateData.workingItem || [],
-        isCleaning: updateData.isCleaning || false
-      },
-      {
-        new: true,
-        runValidators: true,
         sort: { createdAt: -1 } // Get the most recent record for this room
       }
     );
 
-    if (!updatedHousekeeping) {
+    if (!housekeepingRecord) {
       return res.status(404).json({
         success: false,
         message: `Housekeeping item for room ${roomName} not found`,
       });
     }
 
-    // Check if isComplaints is true, then save to complaint database
-    if (updateData.isComplaints === true) {
+    // Check if isComplaints is true, then save to complaint database before deletion
+    if (requestData.isComplaints === true) {
       const complaintData = {
-        complaintRooms: updateData.complaintRooms || [roomName], // Use provided rooms or default to current room
-        complaints: updateData.complaints || [],
+        complaintRooms: requestData.complaintRooms || [roomName], // Use provided rooms or default to current room
+        complaints: requestData.complaints || [],
         isComplaints: true
       };
       
       // Save to complaint database
       const newComplaint = await ComplaintRoomModel.create(complaintData);
       
-      // Return both records
+      // Now delete the housekeeping record
+      await HouseKeepingModel.findByIdAndDelete(housekeepingRecord._id);
+      
+      // Return both the deletion confirmation and new complaint
       return res.status(200).json({
         success: true,
-        message: "Housekeeping record updated and complaint added successfully",
+        message: "Housekeeping record deleted and complaint added successfully",
         data: {
-          housekeeping: updatedHousekeeping,
+          deletedHousekeeping: housekeepingRecord,
           complaint: newComplaint
         },
       });
     }
 
-    // Return just the housekeeping record if no complaints
+    // If no complaint, just delete the housekeeping record
+    await HouseKeepingModel.findByIdAndDelete(housekeepingRecord._id);
+
+    // Return just the housekeeping deletion confirmation
     res.status(200).json({
       success: true,
-      message: `Housekeeping for room ${roomName} updated successfully`,
-      data: updatedHousekeeping,
+      message: `Housekeeping for room ${roomName} deleted successfully`,
+      data: housekeepingRecord,
     });
   } catch (error) {
     console.log(error);
     res.status(500).json({
       success: false,
-      message: "Failed to update housekeeping item",
+      message: "Failed to delete housekeeping item",
       error: error.message,
     });
   }
