@@ -17,6 +17,8 @@ const bookingGuestRoute = require("./modules/BookingGuest/bookingGuest.routes");
 const housekeepingRouter = require("./routes/housekeeping");
 const complaintsRouter = require("./routes/complaintRoutes");
 const LogBookRoutes = require("./modules/LogBook/logbook.routes");
+const ExtraPaymentRoutes = require("./modules/ExtraPayment/extraPayment.routes");
+const ExtraPaymentItemRoutes = require("./modules/ExtraPayment/ExtraPaymentItem/extraPaymentItem.routes");
 
 //middleWire
 app.use(cors());
@@ -48,6 +50,12 @@ app.use("/api/corporate", corporate);
 // updated
 app.use("/api/booking-guest", bookingGuestRoute);
 app.use("/api/logbooks", LogBookRoutes);
+
+// extra payment
+app.use("/api/extrapayment", ExtraPaymentRoutes);
+
+// ExtraPaymentItem
+app.use("/api/extrapayment-item", ExtraPaymentItemRoutes)
 
 app.get("/", async (req, res) => {
   res.status(200).json({

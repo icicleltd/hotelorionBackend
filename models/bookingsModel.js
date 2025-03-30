@@ -123,6 +123,10 @@ const bookingschema = new Schema(
       type: Array,
       default: [],
     },
+    extraPayment: {
+      type: Schema.Types.ObjectId,
+      ref: "ExtraPayment",
+    },
   },
   { timestamps: true }
 );
