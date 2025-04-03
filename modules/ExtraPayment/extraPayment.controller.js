@@ -40,12 +40,20 @@ exports.createExtraPayment = async (req, res, next) => {
       total: paymentData.extraServiceTotal
     };
     
+    // Calculate the new due amount by adding the extra service total to the current due amount
+    const newDueAmount = booking.dueAmount + Number(paymentData.extraServicePrice);
+    
     // Update booking document
     await Bookings.findByIdAndUpdate(
       booking_id,
       { 
         $push: { addons: addonItem },
-        $set: { extraPayment: extraPayment[0]._id }
+        $set: { 
+          extraPayment: extraPayment[0]._id,
+          dueAmount: newDueAmount,
+          // Update the beforeDiscountCost as well to maintain consistency
+          beforeDiscountCost: booking.beforeDiscountCost + Number(paymentData.extraServiceTotal)
+        }
       },
       { session }
     );

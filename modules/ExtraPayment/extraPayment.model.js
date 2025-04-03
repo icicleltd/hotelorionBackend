@@ -20,10 +20,7 @@ const extraPaymentSchema = new Schema(
       type: Number,
       required: true,
     },
-    extraServiceTotal: {
-      type: Number,
-      required: true,
-    },
+  
   },
   { timestamps: true }
 );
