@@ -72,6 +72,9 @@ const bookingschema = new Schema(
           payNumber: {
             type: String,
           },
+          bankName: {
+            type: String,
+          },
           paymentDate: {
             type: String,
           },
