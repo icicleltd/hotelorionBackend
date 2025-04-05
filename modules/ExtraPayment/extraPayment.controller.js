@@ -37,6 +37,7 @@ exports.createExtraPayment = async (req, res, next) => {
       itemName: paymentData.extraServiceName,
       item: paymentData.extraServiceRoomNumber,
       itemPrice: paymentData.extraServicePrice,
+      itemDate: paymentData.extraServiceDate,
       total: paymentData.extraServiceTotal
     };
     

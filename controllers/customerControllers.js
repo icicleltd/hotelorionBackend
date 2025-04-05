@@ -1,3 +1,4 @@
+const Bookings = require("../models/bookingsModel");
 const Customers = require("../models/CustomersModel");
 
 exports.getCustomers = async (req, res, next) => {
@@ -13,21 +14,32 @@ exports.getCustomers = async (req, res, next) => {
 };
 exports.getTodayCheckouts = async (req, res, next) => {
   try {
-    // Get today's date range
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
+    // Get today's date in Dhaka timezone
+    const timeZone = "Asia/Dhaka";
+    const currentDate = new Date();
+    
+    const formattedDateString = new Intl.DateTimeFormat("en-US", {
+      timeZone: timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }).format(currentDate);
 
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999); // End of today
-
-    // Find customers who checked out today (if you have a checkOutDate field)
-    const todayCheckouts = await Customers.find({
-      // Option 1: If you have a specific checkout timestamp field
-      // checkOutTime: { $gte: today, $lte: endOfDay }
-
-      // Option 2: If you use the "checkIn" status field
-      checkIn: "Checked Out",
-      updatedAt: { $gte: today, $lte: endOfDay },
+    // Parse the formatted date string back to a Date object
+    // Format is MM/DD/YYYY, HH:MM:SS AM/PM
+    const parts = formattedDateString.split(", ");
+    const dateParts = parts[0].split("/");
+    
+    // Format as YYYY-MM-DD for database queries
+    const todayFormatted = `${dateParts[2]}-${dateParts[0].padStart(2, '0')}-${dateParts[1].padStart(2, '0')}`;
+    
+    // Find bookings that have today as their lastDate (checkout date)
+    const todayCheckouts = await Bookings.find({
+      lastDate: todayFormatted,
+      isRegistered: true
     });
 
     res.status(200).json({

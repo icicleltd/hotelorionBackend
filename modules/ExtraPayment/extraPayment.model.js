@@ -6,7 +6,7 @@ const extraPaymentSchema = new Schema(
   {
     booking_id: {
       type: Schema.Types.ObjectId,
-      ref: "Bookings"
+      ref: "Bookings",
     },
     extraServiceName: {
       type: String,
@@ -20,7 +20,10 @@ const extraPaymentSchema = new Schema(
       type: Number,
       required: true,
     },
-  
+    extraServiceDate: {
+      type: String,
+      required: true,
+    },
   },
   { timestamps: true }
 );
