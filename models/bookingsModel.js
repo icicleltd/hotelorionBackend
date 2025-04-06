@@ -122,6 +122,9 @@ const bookingschema = new Schema(
       type: Boolean,
       default: false,
     },
+    addressOrCompanyName: {
+      type: String,
+    },
     addons: {
       type: Array,
       default: [],
