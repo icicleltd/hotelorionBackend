@@ -63,3 +63,25 @@ exports.deleteOnlineBooking = async (req, res, next) => {
     next(error);
   }
 };
+exports.deleteOnlineBookingWithoutRoom = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    // console.log(id);
+    
+    const deletedBooking = await OnlineBooking.findOneAndDelete({ _id: id });
+    // console.log(deletedBooking)
+
+    if (!deletedBooking) {
+      return res.status(404).json({
+        message: "Online booking not found",
+      });
+    }
+
+    res.status(200).json({
+      message: "Online booking deleted successfully",
+      data: deletedBooking,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
