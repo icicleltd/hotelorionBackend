@@ -43,9 +43,9 @@ exports.createExtraPayment = async (req, res, next) => {
     
     // Calculate the new due amount by adding the extra service total to the current due amount
     const newDueAmount = booking.dueAmount + Number(paymentData.extraServicePrice);
-    
+    // console.log(newDueAmount, "newDueAmount");
     // Update booking document
-    await Bookings.findByIdAndUpdate(
+    const response = await Bookings.findByIdAndUpdate(
       booking_id,
       { 
         $push: { addons: addonItem },
@@ -58,6 +58,8 @@ exports.createExtraPayment = async (req, res, next) => {
       },
       { session }
     );
+
+    console.log(response, "response")
 
     // Commit the transaction
     await session.commitTransaction();

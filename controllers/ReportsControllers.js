@@ -50,14 +50,21 @@ exports.getLiveReport = async (req, res, next) => {
       createdAt: { $gte: today, $lte: endOfDay },
     });
 
-    // NEW CODE: Find early checkouts that happened today
+    // Find customers who checked out today
     const todayCheckouts = await Customers.find({
       checkIn: "Checked Out",
       updatedAt: { $gte: today, $lte: endOfDay },
     });
 
-    // NEW CODE: Calculate early checkout stats
-    const roomCheckoutCounts = todayCheckouts.reduce((acc, customer) => {
+    // Find early checkouts (customers who checked in AND out on the same day)
+    const earlyCheckouts = todayCheckouts.filter(customer => {
+      const checkInDate = new Date(customer.firstDate);
+      // Check if customer checked in today (same day as checkout)
+      return checkInDate >= today && checkInDate <= endOfDay;
+    });
+
+    // Calculate early checkout stats by room
+    const roomEarlyCheckoutCounts = earlyCheckouts.reduce((acc, customer) => {
       if (!acc[customer.roomNumber]) {
         acc[customer.roomNumber] = 1;
       } else {
@@ -66,10 +73,10 @@ exports.getLiveReport = async (req, res, next) => {
       return acc;
     }, {});
 
-    // NEW CODE: Create early checkouts array
-    const earlyCheckouts = Object.keys(roomCheckoutCounts).map((roomNumber) => ({
+    // Create early checkouts array with room numbers and counts
+    const earlyCheckoutStats = Object.keys(roomEarlyCheckoutCounts).map((roomNumber) => ({
       roomNumber,
-      count: roomCheckoutCounts[roomNumber],
+      count: roomEarlyCheckoutCounts[roomNumber],
     }));
 
     // Get count of customers and bookings
@@ -146,9 +153,10 @@ exports.getLiveReport = async (req, res, next) => {
       recentCustomers: todayCustomers,
       recentBookings: todayBookings,
       bookingsWithTodayPayments: bookingsWithTodayPayments,
-      // NEW CODE: Add early checkout information
-      earlyCheckoutCount: todayCheckouts.length,
-      earlyCheckouts: earlyCheckouts
+      // Add checkout information
+      checkoutsCount: todayCheckouts.length,
+      earlyCheckoutsCount: earlyCheckouts.length,
+      earlyCheckouts: earlyCheckoutStats
     };
 
     res.status(200).json({
