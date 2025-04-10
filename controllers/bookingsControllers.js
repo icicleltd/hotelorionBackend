@@ -316,17 +316,19 @@ exports.roomsColorStatus = async (req, res, next) => {
 
 exports.getLastbookingsId = async (req, res, next) => {
   try {
-    // Find the last booking to get the highest serial number
-    const lastBooking = await Bookings.findOne().sort({ createdAt: -1 });
-
+    // Check if Bookings collection has any documents
+    const bookingsCount = await Bookings.countDocuments();
+    
     let serialNumber;
-
-    if (!lastBooking || !lastBooking.bookingId) {
-      // If no booking exists or no bookingId field exists, return default
-      serialNumber = "0000";
+    
+    if (bookingsCount > 0) {
+      // If Bookings collection is not empty, use the last booking
+      const lastBooking = await Bookings.findOne().sort({ createdAt: -1 });
+      serialNumber = lastBooking.bookingId || "0000";
     } else {
-      // Return the last booking ID
-      serialNumber = lastBooking.bookingId;
+      // If Bookings collection is empty, use the last customer
+      const lastCustomer = await Customers.findOne().sort({ createdAt: -1 });
+      serialNumber = lastCustomer ? lastCustomer.customerId || "0000" : "0000";
     }
 
     res.status(200).json({

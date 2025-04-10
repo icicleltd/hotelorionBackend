@@ -50,6 +50,28 @@ exports.getLiveReport = async (req, res, next) => {
       createdAt: { $gte: today, $lte: endOfDay },
     });
 
+    // NEW CODE: Find early checkouts that happened today
+    const todayCheckouts = await Customers.find({
+      checkIn: "Checked Out",
+      updatedAt: { $gte: today, $lte: endOfDay },
+    });
+
+    // NEW CODE: Calculate early checkout stats
+    const roomCheckoutCounts = todayCheckouts.reduce((acc, customer) => {
+      if (!acc[customer.roomNumber]) {
+        acc[customer.roomNumber] = 1;
+      } else {
+        acc[customer.roomNumber] += 1;
+      }
+      return acc;
+    }, {});
+
+    // NEW CODE: Create early checkouts array
+    const earlyCheckouts = Object.keys(roomCheckoutCounts).map((roomNumber) => ({
+      roomNumber,
+      count: roomCheckoutCounts[roomNumber],
+    }));
+
     // Get count of customers and bookings
     const customersCount = todayCustomers.length;
     const bookingsCount = todayBookings.length;
@@ -123,7 +145,10 @@ exports.getLiveReport = async (req, res, next) => {
       totalRevenue,
       recentCustomers: todayCustomers,
       recentBookings: todayBookings,
-      bookingsWithTodayPayments: bookingsWithTodayPayments
+      bookingsWithTodayPayments: bookingsWithTodayPayments,
+      // NEW CODE: Add early checkout information
+      earlyCheckoutCount: todayCheckouts.length,
+      earlyCheckouts: earlyCheckouts
     };
 
     res.status(200).json({
