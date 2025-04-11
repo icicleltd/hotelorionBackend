@@ -30,36 +30,42 @@ exports.createExtraPayment = async (req, res, next) => {
     }
 
     // Create the extra payment
-    const extraPayment = await ExtraPaymentModel.create([req.body], { session });
-    
-    // Add payment to booking's addons array
+    const extraPayment = await ExtraPaymentModel.create([req.body], {
+      session,
+    });
+
+    // Convert price and total to numbers to ensure they're stored as numeric values
+    const itemPrice = Number(paymentData.extraServicePrice) || 0;
+    const itemTotal = Number(paymentData.extraServiceTotal) || 0;
+
+    // Add payment to booking's addons array with numeric values
     const addonItem = {
       itemName: paymentData.extraServiceName,
       item: paymentData.extraServiceRoomNumber,
-      itemPrice: paymentData.extraServicePrice,
+      itemPrice: itemPrice, // Store as number
       itemDate: paymentData.extraServiceDate,
-      total: paymentData.extraServiceTotal
+      total: itemTotal, // Store as number
     };
-    
-    // Calculate the new due amount by adding the extra service total to the current due amount
-    const newDueAmount = booking.dueAmount + Number(paymentData.extraServicePrice);
-    // console.log(newDueAmount, "newDueAmount");
+
+    // Calculate the new due amount by adding the extra service price to the current due amount
+    const newDueAmount = booking.dueAmount + itemPrice;
+
     // Update booking document
     const response = await Bookings.findByIdAndUpdate(
       booking_id,
-      { 
+      {
         $push: { addons: addonItem },
-        $set: { 
+        $set: {
           extraPayment: extraPayment[0]._id,
           dueAmount: newDueAmount,
           // Update the beforeDiscountCost as well to maintain consistency
-          beforeDiscountCost: booking.beforeDiscountCost + Number(paymentData.extraServiceTotal)
-        }
+          beforeDiscountCost: booking.beforeDiscountCost + itemTotal,
+        },
       },
-      { session }
+      { session, new: true } // Return the updated document
     );
 
-    console.log(response, "response")
+    // console.log(response, "response");
 
     // Commit the transaction
     await session.commitTransaction();
@@ -74,6 +80,7 @@ exports.createExtraPayment = async (req, res, next) => {
     // Abort transaction on error
     await session.abortTransaction();
     session.endSession();
+    console.error("Extra payment error:", error);
     next(error);
   }
 };
@@ -82,9 +89,9 @@ exports.createExtraPayment = async (req, res, next) => {
 exports.getAllExtraPayments = async (req, res, next) => {
   try {
     const result = await ExtraPaymentModel.find()
-      .populate('booking_id')
+      .populate("booking_id")
       .sort({ createdAt: -1 });
-    
+
     res.status(200).json({
       success: true,
       message: "Extra Payments Retrieved",
@@ -100,18 +107,18 @@ exports.getAllExtraPayments = async (req, res, next) => {
 exports.getExtraPaymentsByBookingId = async (req, res, next) => {
   try {
     const { bookingId } = req.params;
-    
+
     if (!mongoose.Types.ObjectId.isValid(bookingId)) {
       return res.status(400).json({
         success: false,
         message: "Invalid booking ID format",
       });
     }
-    
+
     const result = await ExtraPaymentModel.find({ booking_id: bookingId })
-      .populate('booking_id')
+      .populate("booking_id")
       .sort({ createdAt: -1 });
-    
+
     res.status(200).json({
       success: true,
       message: "Extra Payments for Booking Retrieved",
@@ -127,24 +134,23 @@ exports.getExtraPaymentsByBookingId = async (req, res, next) => {
 exports.getExtraPaymentById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
         message: "Invalid extra payment ID format",
       });
     }
-    
-    const result = await ExtraPaymentModel.findById(id)
-      .populate('booking_id');
-    
+
+    const result = await ExtraPaymentModel.findById(id).populate("booking_id");
+
     if (!result) {
       return res.status(404).json({
         success: false,
         message: "Extra Payment not found",
       });
     }
-    
+
     res.status(200).json({
       success: true,
       message: "Extra Payment Retrieved",
@@ -163,7 +169,7 @@ exports.updateExtraPayment = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { booking_id, ...paymentData } = req.body;
-    
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
@@ -179,39 +185,47 @@ exports.updateExtraPayment = async (req, res, next) => {
         message: "Extra Payment not found",
       });
     }
-    
+
     // Update the extra payment
-    const result = await ExtraPaymentModel.findByIdAndUpdate(
-      id,
-      req.body,
-      { new: true, runValidators: true, session }
-    );
-    
+    const result = await ExtraPaymentModel.findByIdAndUpdate(id, req.body, {
+      new: true,
+      runValidators: true,
+      session,
+    });
+
     // If there's a change in data that should be reflected in booking addons
-    if (originalPayment.extraServiceName !== paymentData.extraServiceName ||
-        originalPayment.extraServiceRoomNumber !== paymentData.extraServiceRoomNumber ||
-        originalPayment.extraServicePrice !== paymentData.extraServicePrice ||
-        originalPayment.extraServiceTotal !== paymentData.extraServiceTotal) {
-      
+    if (
+      originalPayment.extraServiceName !== paymentData.extraServiceName ||
+      originalPayment.extraServiceRoomNumber !==
+        paymentData.extraServiceRoomNumber ||
+      originalPayment.extraServicePrice !== paymentData.extraServicePrice ||
+      originalPayment.extraServiceTotal !== paymentData.extraServiceTotal
+    ) {
       // Create updated addon item
       const updatedAddonItem = {
-        itemName: paymentData.extraServiceName || originalPayment.extraServiceName,
-        item: paymentData.extraServiceRoomNumber || originalPayment.extraServiceRoomNumber,
-        itemPrice: paymentData.extraServicePrice || originalPayment.extraServicePrice,
-        total: paymentData.extraServiceTotal || originalPayment.extraServiceTotal
+        itemName:
+          paymentData.extraServiceName || originalPayment.extraServiceName,
+        item:
+          paymentData.extraServiceRoomNumber ||
+          originalPayment.extraServiceRoomNumber,
+        itemPrice:
+          paymentData.extraServicePrice || originalPayment.extraServicePrice,
+        total:
+          paymentData.extraServiceTotal || originalPayment.extraServiceTotal,
       };
-      
+
       // Find the booking and the specific addon to update
       const bookingId = booking_id || originalPayment.booking_id;
       const booking = await Bookings.findById(bookingId);
-      
+
       if (booking && booking.addons && booking.addons.length > 0) {
         // Find the matching addon (this is approximate matching)
-        const addonIndex = booking.addons.findIndex(addon => 
-          addon.itemName === originalPayment.extraServiceName &&
-          addon.item === originalPayment.extraServiceRoomNumber
+        const addonIndex = booking.addons.findIndex(
+          (addon) =>
+            addon.itemName === originalPayment.extraServiceName &&
+            addon.item === originalPayment.extraServiceRoomNumber
         );
-        
+
         if (addonIndex !== -1) {
           // Update the specific addon in the array
           booking.addons[addonIndex] = updatedAddonItem;
@@ -219,10 +233,10 @@ exports.updateExtraPayment = async (req, res, next) => {
         }
       }
     }
-    
+
     await session.commitTransaction();
     session.endSession();
-    
+
     res.status(200).json({
       success: true,
       message: "Extra Payment Updated",
@@ -242,14 +256,14 @@ exports.deleteExtraPayment = async (req, res, next) => {
 
   try {
     const { id } = req.params;
-    
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
         message: "Invalid extra payment ID format",
       });
     }
-    
+
     // Get the payment before deleting to get associated booking
     const payment = await ExtraPaymentModel.findById(id);
     if (!payment) {
@@ -258,28 +272,28 @@ exports.deleteExtraPayment = async (req, res, next) => {
         message: "Extra Payment not found",
       });
     }
-    
+
     // Delete the extra payment
     const result = await ExtraPaymentModel.findByIdAndDelete(id, { session });
-    
+
     // Remove from booking's addons array
     await Bookings.findByIdAndUpdate(
       payment.booking_id,
-      { 
-        $pull: { 
-          addons: { 
+      {
+        $pull: {
+          addons: {
             itemName: payment.extraServiceName,
-            item: payment.extraServiceRoomNumber 
-          } 
+            item: payment.extraServiceRoomNumber,
+          },
         },
-        $unset: { extraPayment: "" }
+        $unset: { extraPayment: "" },
       },
       { session }
     );
 
     await session.commitTransaction();
     session.endSession();
-    
+
     res.status(200).json({
       success: true,
       message: "Extra Payment Deleted and Booking Updated",
@@ -303,21 +317,24 @@ exports.getExtraPaymentStats = async (req, res, next) => {
           totalAmount: { $sum: "$extraServiceTotal" },
           avgAmount: { $avg: "$extraServiceTotal" },
           minAmount: { $min: "$extraServiceTotal" },
-          maxAmount: { $max: "$extraServiceTotal" }
-        }
-      }
+          maxAmount: { $max: "$extraServiceTotal" },
+        },
+      },
     ]);
-    
+
     res.status(200).json({
       success: true,
       message: "Extra Payment Statistics Retrieved",
-      data: stats.length > 0 ? stats[0] : {
-        totalCount: 0,
-        totalAmount: 0,
-        avgAmount: 0,
-        minAmount: 0,
-        maxAmount: 0
-      },
+      data:
+        stats.length > 0
+          ? stats[0]
+          : {
+              totalCount: 0,
+              totalAmount: 0,
+              avgAmount: 0,
+              minAmount: 0,
+              maxAmount: 0,
+            },
     });
   } catch (error) {
     next(error);
