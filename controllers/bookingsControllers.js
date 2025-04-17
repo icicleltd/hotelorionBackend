@@ -157,6 +157,9 @@ exports.roomsColorStatus = async (req, res, next) => {
     // Format as YYYY-MM-DD for database queries
     const todayFormatted = dhakaNow.toISOString().split("T")[0];
 
+    // Store the date parameter in YYYY-MM-DD format for filtering booking rooms
+    const requestedDateFormatted = dateParam || todayFormatted;
+
     // First, update the isTodayCheckout flag for all bookings to ensure it's accurate
     await Bookings.updateMany(
       { isTodayCheckout: true, lastDate: { $ne: todayFormatted } },
@@ -192,7 +195,7 @@ exports.roomsColorStatus = async (req, res, next) => {
     const registeredAndTodayCheckout = [];
     const registeredAndNotTodayCheckout = [];
     const previousRegisteredAndNotTodayCheckout = [];
-    const bookingRooms = [];
+    const bookingRooms = {}; // Changed to object for date-wise tracking
     const housekeepingAllRooms = [];
     const complaintsAllRooms = []; // New array for complaint rooms
 
@@ -257,24 +260,41 @@ exports.roomsColorStatus = async (req, res, next) => {
       }
     });
 
-    // Process online bookings
+    // Process online bookings (date-wise)
     onlineBookings.forEach((booking) => {
       if (booking.roomNumber) {
+        // Get the check-in date from the booking
+        const bookingDate = booking.chekinDate || todayFormatted;
+
+        // Initialize array for this date if it doesn't exist
+        if (!bookingRooms[bookingDate]) {
+          bookingRooms[bookingDate] = [];
+        }
+
+        // Process the roomNumber based on its type
         if (typeof booking.roomNumber === "string") {
-          // Handle comma-separated room numbers
-          const roomNumbers = booking.roomNumber
-            .split(",")
-            .map((room) => room.trim());
-          bookingRooms.push(...roomNumbers);
+          // Handle comma-separated room numbers or single room
+          const roomNumbers = booking.roomNumber.includes(",")
+            ? booking.roomNumber.split(",").map((room) => room.trim())
+            : [booking.roomNumber.trim()];
+          bookingRooms[bookingDate].push(...roomNumbers);
         } else if (Array.isArray(booking.roomNumber)) {
           // Handle array of room numbers
-          bookingRooms.push(...booking.roomNumber);
+          bookingRooms[bookingDate].push(...booking.roomNumber);
         } else {
-          // Handle single room number
-          bookingRooms.push(booking.roomNumber);
+          // Handle other cases (like number) by converting to string
+          bookingRooms[bookingDate].push(String(booking.roomNumber));
         }
       }
     });
+
+    // Remove duplicates from each date in bookingRooms
+    Object.keys(bookingRooms).forEach((date) => {
+      bookingRooms[date] = [...new Set(bookingRooms[date])];
+    });
+
+    // Get rooms only for the requested date parameter
+    const dateFilteredRooms = bookingRooms[requestedDateFormatted] || [];
 
     // Remove duplicates from each array
     const uniqueRegisteredAndTodayCheckout = [
@@ -286,7 +306,6 @@ exports.roomsColorStatus = async (req, res, next) => {
     const uniquePreviousRegisteredAndNotTodayCheckout = [
       ...new Set(previousRegisteredAndNotTodayCheckout),
     ];
-    const uniqueBookingRooms = [...new Set(bookingRooms)];
     const uniqueHousekeepingRooms = [...new Set(housekeepingAllRooms)];
     const uniqueComplaintRooms = [...new Set(complaintsAllRooms)]; // Remove duplicates from complaint rooms
 
@@ -296,7 +315,8 @@ exports.roomsColorStatus = async (req, res, next) => {
       registeredAndNotTodayCheckout: uniqueRegisteredAndNotTodayCheckout,
       previousRegisteredAndNotTodayCheckout:
         uniquePreviousRegisteredAndNotTodayCheckout,
-      bookingRooms: uniqueBookingRooms,
+      bookingRooms: dateFilteredRooms, // Only rooms for the requested date
+      bookingRoomsByDate: bookingRooms, // Keep full date organization for reference
       housekeepingRooms: uniqueHousekeepingRooms,
       complaintRooms: uniqueComplaintRooms, // Added complaint rooms
       currentDate: formattedDateString,
@@ -651,8 +671,9 @@ exports.updatenightstayaddons = async (req, res, next) => {
 
 exports.updatedBookingInfo = async (req, res, next) => {
   try {
-    const { bookingId, payment, ...otherUpdateData } = req.body;
-
+    const { bookingId, payment, updateDueAmount, ...otherUpdateData } = req.body;
+    // console.log("Request data:", otherUpdateData);
+    
     // Find the existing booking to get current payment array
     const existingBooking = await Bookings.findOne({ bookingId });
 
@@ -662,8 +683,11 @@ exports.updatedBookingInfo = async (req, res, next) => {
         message: "Booking not found",
       });
     }
-
-    // Convert payment amount to number if payment is provided
+    
+    // Set update data
+    let updateData = { ...otherUpdateData };
+    
+    // Handle payment addition if provided
     if (payment) {
       payment.amount = Number(payment.amount || 0);
 
@@ -696,27 +720,35 @@ exports.updatedBookingInfo = async (req, res, next) => {
         { $push: { payment: payment } },
         { new: false }
       );
+      
+      // Update paid amount
+      updateData.paidAmount = existingBooking.paidAmount + payment.amount;
+      
+      // Calculate new due amount based on the payment
+      if (!updateDueAmount) {
+        // Only adjust due amount by payment if we're not explicitly setting it
+        updateData.dueAmount = Math.max(0, existingBooking.dueAmount - payment.amount);
+      }
+    }
+    
+    // If updateDueAmount is true and dueAmount is provided, respect the provided dueAmount
+    // Otherwise, keep the existing dueAmount (if no payment) or the payment-adjusted dueAmount
+    if (!updateData.dueAmount && !updateDueAmount) {
+      // If dueAmount is not part of the update and we're not explicitly updating it,
+      // keep the existing value
+      delete updateData.dueAmount;
     }
 
-    // Calculate new due amount and paid amount
-    const newDueAmount = payment
-      ? Math.max(0, existingBooking.dueAmount - payment.amount)
-      : existingBooking.dueAmount;
-
-    const newPaidAmount = payment
-      ? existingBooking.paidAmount + payment.amount
-      : existingBooking.paidAmount;
-
+    // console.log("Final update data:", updateData);
+    
     // Update the booking with all changes in a single operation
     const updatedBooking = await Bookings.findOneAndUpdate(
       { bookingId },
-      {
-        ...otherUpdateData,
-        dueAmount: newDueAmount,
-        paidAmount: newPaidAmount,
-      },
+      updateData,
       { new: true }
     );
+
+    console.log("updatedBooking", updatedBooking);
 
     // Return the updated booking
     res.status(200).json({
