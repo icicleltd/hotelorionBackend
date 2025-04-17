@@ -30,7 +30,7 @@ const onlinebookingschema = new Schema(
     },
     roomsNeed: {
       type: Number,
-      // required: true,
+      
     },
     adults: {
       type: Number,
