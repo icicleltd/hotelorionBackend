@@ -46,6 +46,11 @@ const onlinebookingschema = new Schema(
       type: Number,
       // required: true,
     },
+    person: {
+      type: Number,
+      // required: true,
+    },
+
     chekinDate: {
       type: String,
       required: true,
