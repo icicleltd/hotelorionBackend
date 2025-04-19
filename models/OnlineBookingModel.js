@@ -23,7 +23,7 @@ const onlinebookingschema = new Schema(
     },
     roomType: {
       type: String,
-      required: true,
+      // required: true,
     },
     roomNumber: {
       type: String,
