@@ -671,8 +671,7 @@ exports.updatenightstayaddons = async (req, res, next) => {
 
 exports.updatedBookingInfo = async (req, res, next) => {
   try {
-    const { bookingId, payment, updateDueAmount, ...otherUpdateData } =
-      req.body;
+    const { bookingId, payment, updateDueAmount, ...otherUpdateData } = req.body;
 
     // Find the existing booking to get current payment array
     const existingBooking = await Bookings.findOne({ bookingId });
@@ -684,79 +683,29 @@ exports.updatedBookingInfo = async (req, res, next) => {
       });
     }
 
-    // calculate due amount
-    const dueAmount = existingBooking.dueAmount - payment.amount;
-    const paidAmount = existingBooking.paidAmount + payment.amount;
-    // console.log(dueAmount, 688);
+    // Initialize payment amount to 0 if not provided or invalid
+    const paymentAmount = Number(payment?.amount) || 0;
+
+    // Validate existing dueAmount is a number
+    const currentDueAmount = Number(existingBooking.dueAmount) || 0;
+    const currentPaidAmount = Number(existingBooking.paidAmount) || 0;
+
+    // calculate due amount with proper validation
+    const dueAmount = Math.max(0, currentDueAmount - paymentAmount);
+    const paidAmount = currentPaidAmount + paymentAmount;
 
     // now update paidAmount and due Amount
-    const updatedBookinglast = await Bookings.findOneAndUpdate(
+    const updatedBooking = await Bookings.findOneAndUpdate(
       { bookingId },
-      { $set: { paidAmount, dueAmount } },
+      { $set: { paidAmount, dueAmount, ...otherUpdateData } },
       { new: true }
     );
-    // console.log(updatedBookinglast, 697);
-
-    // console.log("existingBooking", existingBooking);
-
-    // Set update data
-    let updateData = { ...otherUpdateData };
-
-    // Handle payment addition if provided
-    // if (payment) {
-    //   payment.amount = Number(payment.amount || 0);
-
-    //   // If payment is approximately equal to due amount, adjust it to be exact
-    //   if (Math.abs(payment.amount - existingBooking.dueAmount) < 0.5) {
-    //     payment.amount = existingBooking.dueAmount;
-    //   }
-
-    //   // Add the payment to the payment array
-    //   const res = await Bookings.findOneAndUpdate(
-    //     { bookingId },
-    //     { $push: { payment: payment } },
-    //     { new: false }
-    //   );
-
-    //   // console.log(res, 725);
-
-    //   // Update paid amount
-    //   updateData.paidAmount = existingBooking.paidAmount + payment.amount;
-
-    //   // Calculate new due amount based on the payment
-    //   if (!updateDueAmount) {
-    //     // Only adjust due amount by payment if we're not explicitly setting it
-    //     updateData.dueAmount = Math.max(
-    //       0,
-    //       existingBooking.dueAmount - payment.amount
-    //     );
-    //   }
-    // }
-
-    // If updateDueAmount is true and dueAmount is provided, respect the provided dueAmount
-    // Otherwise, keep the existing dueAmount (if no payment) or the payment-adjusted dueAmount
-    // if (!updateData.dueAmount && !updateDueAmount) {
-    //   // If dueAmount is not part of the update and we're not explicitly updating it,
-    //   // keep the existing value
-    //   delete updateData.dueAmount;
-    // }
-
-    // console.log("Final update data:", updateData);
-
-    // Update the booking with all changes in a single operation
-    // const updatedBooking = await Bookings.findOneAndUpdate(
-    //   { bookingId },
-    //   updateData,
-    //   { new: true }
-    // );
-
-    // console.log("updatedBooking", updatedBooking);
 
     // Return the updated booking
     res.status(200).json({
       success: true,
       message: "Booking updated successfully",
-      data: updatedBookinglast,
+      data: updatedBooking,
     });
   } catch (error) {
     console.error("Error updating booking:", error);
