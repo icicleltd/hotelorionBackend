@@ -102,6 +102,10 @@ const bookingschema = new Schema(
       type: Boolean,
       default: false,
     },
+    isSingle: {
+      type: String,
+      default: false,
+    },
     referredBy: {
       type: String,
     },
