@@ -107,7 +107,6 @@ exports.roomsColorStatus = async (req, res, next) => {
     // Create a valid Date object based on the parameter or use current date
     let currentDate;
     if (dateParam) {
-      // If date parameter is provided, create a date from it
       currentDate = new Date(dateParam);
 
       // Check if the date is valid
@@ -195,6 +194,7 @@ exports.roomsColorStatus = async (req, res, next) => {
     const registeredAndTodayCheckout = [];
     const registeredAndNotTodayCheckout = [];
     const previousRegisteredAndNotTodayCheckout = [];
+    const lateCheckOutRooms = [];
     const bookingRooms = {}; // Changed to object for date-wise tracking
     const housekeepingAllRooms = [];
     const complaintsAllRooms = []; // New array for complaint rooms
@@ -238,6 +238,21 @@ exports.roomsColorStatus = async (req, res, next) => {
     const processRoomNumbers = (booking, roomNumbers) => {
       if (booking.isTodayCheckout === true) {
         registeredAndTodayCheckout.push(...roomNumbers);
+        
+        // Check for late checkout (after 12:00 PM)
+        if (booking.checkOutTime) {
+          const checkoutTimeParts = booking.checkOutTime.split(':');
+          if (checkoutTimeParts.length >= 2) {
+            const hours = parseInt(checkoutTimeParts[0], 10);
+            // const hours = 12
+            const minutes = parseInt(checkoutTimeParts[1], 10);
+            
+            // If checkout time is 12:00 PM or later, add to late checkout rooms
+            if (hours >= 12) {
+              lateCheckOutRooms.push(...roomNumbers);
+            }
+          }
+        }
       } else if (booking.firstDate === todayFormatted) {
         registeredAndNotTodayCheckout.push(...roomNumbers);
       } else if (
@@ -306,6 +321,9 @@ exports.roomsColorStatus = async (req, res, next) => {
     const uniquePreviousRegisteredAndNotTodayCheckout = [
       ...new Set(previousRegisteredAndNotTodayCheckout),
     ];
+    const uniqueLateCheckOutRooms = [
+      ...new Set(lateCheckOutRooms),
+    ];
     const uniqueHousekeepingRooms = [...new Set(housekeepingAllRooms)];
     const uniqueComplaintRooms = [...new Set(complaintsAllRooms)]; // Remove duplicates from complaint rooms
 
@@ -315,6 +333,7 @@ exports.roomsColorStatus = async (req, res, next) => {
       registeredAndNotTodayCheckout: uniqueRegisteredAndNotTodayCheckout,
       previousRegisteredAndNotTodayCheckout:
         uniquePreviousRegisteredAndNotTodayCheckout,
+      lateCheckOutRooms: uniqueLateCheckOutRooms, // Added late checkout rooms
       bookingRooms: dateFilteredRooms, // Only rooms for the requested date
       bookingRoomsByDate: bookingRooms, // Keep full date organization for reference
       housekeepingRooms: uniqueHousekeepingRooms,
@@ -322,6 +341,10 @@ exports.roomsColorStatus = async (req, res, next) => {
       currentDate: formattedDateString,
       formattedForQueries: todayFormatted,
     };
+
+    console.log(dateParam, 325);
+    console.log(roomsColor.registeredAndTodayCheckout, 326);
+    console.log("Late checkouts:", roomsColor.lateCheckOutRooms);
 
     // Return the response
     res.status(200).json({
