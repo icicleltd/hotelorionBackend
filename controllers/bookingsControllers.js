@@ -159,6 +159,17 @@ exports.roomsColorStatus = async (req, res, next) => {
     // Store the date parameter in YYYY-MM-DD format for filtering booking rooms
     const requestedDateFormatted = dateParam || todayFormatted;
 
+    // Get current time in minutes (for late checkout comparison)
+    const currentHours = dhakaNow.getHours();
+    const currentMinutes = dhakaNow.getMinutes();
+    const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+    
+    // Define cutoff time (11:59 AM = 11*60 + 59 = 719 minutes)
+    const cutoffTimeInMinutes = 11 * 60 + 59;
+    
+    // Check if current time is past the checkout cutoff time
+    const isPastCheckoutTime = currentTimeInMinutes > cutoffTimeInMinutes;
+
     // First, update the isTodayCheckout flag for all bookings to ensure it's accurate
     await Bookings.updateMany(
       { isTodayCheckout: true, lastDate: { $ne: todayFormatted } },
@@ -237,21 +248,12 @@ exports.roomsColorStatus = async (req, res, next) => {
     // Helper function to process room numbers
     const processRoomNumbers = (booking, roomNumbers) => {
       if (booking.isTodayCheckout === true) {
+        // Add to today's checkout list
         registeredAndTodayCheckout.push(...roomNumbers);
         
-        // Check for late checkout (after 12:00 PM)
-        if (booking.checkOutTime) {
-          const checkoutTimeParts = booking.checkOutTime.split(':');
-          if (checkoutTimeParts.length >= 2) {
-            const hours = parseInt(checkoutTimeParts[0], 10);
-            // const hours = 12
-            const minutes = parseInt(checkoutTimeParts[1], 10);
-            
-            // If checkout time is 12:00 PM or later, add to late checkout rooms
-            if (hours >= 12) {
-              lateCheckOutRooms.push(...roomNumbers);
-            }
-          }
+        // Only add to late checkout list if current time is past the checkout cutoff (11:59 AM)
+        if (isPastCheckoutTime) {
+          lateCheckOutRooms.push(...roomNumbers);
         }
       } else if (booking.firstDate === todayFormatted) {
         registeredAndNotTodayCheckout.push(...roomNumbers);
@@ -340,11 +342,17 @@ exports.roomsColorStatus = async (req, res, next) => {
       complaintRooms: uniqueComplaintRooms, // Added complaint rooms
       currentDate: formattedDateString,
       formattedForQueries: todayFormatted,
+      currentTimeInfo: {
+        currentTime: `${currentHours}:${currentMinutes}`,
+        isPastCheckoutTime: isPastCheckoutTime
+      }
     };
 
-    console.log(dateParam, 325);
-    console.log(roomsColor.registeredAndTodayCheckout, 326);
-    console.log("Late checkouts:", roomsColor.lateCheckOutRooms);
+    // console.log(dateParam, 325);
+    // console.log(roomsColor.registeredAndTodayCheckout, 326);
+    // console.log("Late checkouts:", roomsColor.lateCheckOutRooms);
+    // console.log("Current time in minutes:", currentTimeInMinutes);
+    // console.log("Is past checkout time:", isPastCheckoutTime);
 
     // Return the response
     res.status(200).json({
