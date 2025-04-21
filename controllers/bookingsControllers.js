@@ -140,28 +140,29 @@ exports.roomsColorStatus = async (req, res, next) => {
     const timeValues = timeParts[0].split(":");
 
     // Create date from parts (month is 0-indexed in JS Date)
-    const dhakaNow = new Date(
-      parseInt(dateParts[2]),
-      parseInt(dateParts[0]) - 1,
-      parseInt(dateParts[1]),
-      timeParts[1] === "PM" && parseInt(timeValues[0]) !== 12
-        ? parseInt(timeValues[0]) + 12
-        : timeParts[1] === "AM" && parseInt(timeValues[0]) === 12
-        ? 0
-        : parseInt(timeValues[0]),
-      parseInt(timeValues[1]),
-      parseInt(timeValues[2])
-    );
+    // const dhakaNow = new Date(
+    //   parseInt(dateParts[2]),
+    //   parseInt(dateParts[0]) - 1,
+    //   parseInt(dateParts[1]),
+    //   timeParts[1] === "PM" && parseInt(timeValues[0]) !== 12
+    //     ? parseInt(timeValues[0]) + 12
+    //     : timeParts[1] === "AM" && parseInt(timeValues[0]) === 12
+    //     ? 0
+    //     : parseInt(timeValues[0]),
+    //   parseInt(timeValues[1]),
+    //   parseInt(timeValues[2])
+    // );
 
     // Format as YYYY-MM-DD for database queries
-    const todayFormatted = dhakaNow.toISOString().split("T")[0];
+    // const todayFormatted = dhakaNow.toISOString().split("T")[0];
+    const todayFormatted = new Date().toISOString().split("T")[0];
 
     // Store the date parameter in YYYY-MM-DD format for filtering booking rooms
     const requestedDateFormatted = dateParam || todayFormatted;
 
     // Get current time in minutes (for late checkout comparison)
-    const currentHours = dhakaNow.getHours();
-    const currentMinutes = dhakaNow.getMinutes();
+    const currentHours = new Date().getHours();
+    const currentMinutes = new Date().getMinutes();
     const currentTimeInMinutes = currentHours * 60 + currentMinutes;
 
     const currentDateHours = new Date().getHours();
