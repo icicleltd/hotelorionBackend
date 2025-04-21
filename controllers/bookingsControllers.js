@@ -173,6 +173,7 @@ exports.roomsColorStatus = async (req, res, next) => {
     const currentDateTimeInMinutes = currentDateHours * 60 + currentDateMinutes;
 
     const isPastCheckoutTime = currentDateTimeInMinutes >= halfDayInMinutes;
+    console.log(isPastCheckoutTime, "isPastCheckoutTime");
 
     // First, update the isTodayCheckout flag for all bookings to ensure it's accurate
     await Bookings.updateMany(
