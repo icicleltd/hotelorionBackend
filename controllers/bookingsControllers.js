@@ -121,60 +121,26 @@ exports.roomsColorStatus = async (req, res, next) => {
       currentDate = new Date();
     }
 
-    const timeZone = "Asia/Dhaka";
-    const formattedDateString = new Intl.DateTimeFormat("en-US", {
-      timeZone: timeZone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    }).format(currentDate);
-
-    // Parse the formatted date string back to a Date object
-
-    const parts = formattedDateString.split(", ");
-    const dateParts = parts[0].split("/");
-    const timeParts = parts[1].split(" ");
-    const timeValues = timeParts[0].split(":");
-
-    // Create date from parts (month is 0-indexed in JS Date)
-    // const dhakaNow = new Date(
-    //   parseInt(dateParts[2]),
-    //   parseInt(dateParts[0]) - 1,
-    //   parseInt(dateParts[1]),
-    //   timeParts[1] === "PM" && parseInt(timeValues[0]) !== 12
-    //     ? parseInt(timeValues[0]) + 12
-    //     : timeParts[1] === "AM" && parseInt(timeValues[0]) === 12
-    //     ? 0
-    //     : parseInt(timeValues[0]),
-    //   parseInt(timeValues[1]),
-    //   parseInt(timeValues[2])
-    // );
+    // Format current date for display
+    const formattedDateString = currentDate.toLocaleString('en-US');
 
     // Format as YYYY-MM-DD for database queries
-    // const todayFormatted = dhakaNow.toISOString().split("T")[0];
-    const todayFormatted = new Date().toISOString().split("T")[0];
+    const todayFormatted = currentDate.toISOString().split("T")[0];
 
     // Store the date parameter in YYYY-MM-DD format for filtering booking rooms
     const requestedDateFormatted = dateParam || todayFormatted;
 
-    // Get current time in minutes (for late checkout comparison)
-    const currentHours = new Date().getHours();
-    const currentMinutes = new Date().getMinutes();
-    const currentTimeInMinutes = currentHours * 60 + currentMinutes;
-
-    const currentDateHours = new Date().getHours();
-    const currentDateMinutes = new Date().getMinutes();
-
-    const currentFullDateTimeInMinutes =
-      currentDate.getHours() * 60 + currentDate.getMinutes();
-    const halfDayInMinutes = 12 * 60;
-    const currentDateTimeInMinutes = currentDateHours * 60 + currentDateMinutes;
-
-    const isPastCheckoutTime = currentDateTimeInMinutes >= halfDayInMinutes;
-    console.log(isPastCheckoutTime, "isPastCheckoutTime");
+    // Get current time - ALWAYS USE SERVER TIME FOR CONSISTENCY
+    const now = new Date();
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+    
+    // Simple check - isPastCheckoutTime is true if hours >= 12 (past noon)
+    // Make sure to use the ">=" comparison to include exactly 12:00 PM
+    const isPastCheckoutTime = currentHours >= 12;
+    
+    console.log(`Current time: ${currentHours}:${currentMinutes}`);
+    console.log(`Is past checkout time (noon): ${isPastCheckoutTime}`);
 
     // First, update the isTodayCheckout flag for all bookings to ensure it's accurate
     await Bookings.updateMany(
@@ -351,12 +317,6 @@ exports.roomsColorStatus = async (req, res, next) => {
         isPastCheckoutTime: isPastCheckoutTime,
       },
     };
-
-    // console.log(dateParam, 325);
-    // console.log(roomsColor.registeredAndTodayCheckout, 326);
-    // console.log("Late checkouts:", roomsColor.lateCheckOutRooms);
-    // console.log("Current time in minutes:", currentTimeInMinutes);
-    // console.log("Is past checkout time:", isPastCheckoutTime);
 
     // Return the response
     res.status(200).json({
