@@ -133,7 +133,7 @@ exports.roomsColorStatus = async (req, res, next) => {
     }).format(currentDate);
 
     // Parse the formatted date string back to a Date object
-    // Format is MM/DD/YYYY, HH:MM:SS AM/PM
+
     const parts = formattedDateString.split(", ");
     const dateParts = parts[0].split("/");
     const timeParts = parts[1].split(" ");
@@ -141,16 +141,16 @@ exports.roomsColorStatus = async (req, res, next) => {
 
     // Create date from parts (month is 0-indexed in JS Date)
     const dhakaNow = new Date(
-      parseInt(dateParts[2]), // year
-      parseInt(dateParts[0]) - 1, // month (0-indexed)
-      parseInt(dateParts[1]), // day
+      parseInt(dateParts[2]),
+      parseInt(dateParts[0]) - 1,
+      parseInt(dateParts[1]),
       timeParts[1] === "PM" && parseInt(timeValues[0]) !== 12
-        ? parseInt(timeValues[0]) + 12 // hour (convert to 24hr)
+        ? parseInt(timeValues[0]) + 12
         : timeParts[1] === "AM" && parseInt(timeValues[0]) === 12
-        ? 0 // midnight (12 AM)
-        : parseInt(timeValues[0]), // other hours
-      parseInt(timeValues[1]), // minutes
-      parseInt(timeValues[2]) // seconds
+        ? 0
+        : parseInt(timeValues[0]),
+      parseInt(timeValues[1]),
+      parseInt(timeValues[2])
     );
 
     // Format as YYYY-MM-DD for database queries
@@ -164,15 +164,15 @@ exports.roomsColorStatus = async (req, res, next) => {
     const currentMinutes = dhakaNow.getMinutes();
     const currentTimeInMinutes = currentHours * 60 + currentMinutes;
 
-    console.log(currentTimeInMinutes)
-    
-    // Define cutoff time (12:00 PM = 12*60 + 0 = 720 minutes)
-    const cutoffTimeInMinutes = 12 * 60 + 0;
-    
-    // Check if current time is past the checkout cutoff time
-    // const isPastCheckoutTime = currentTimeInMinutes >= cutoffTimeInMinutes;
-    const isPastCheckoutTime = true
-    console.log(isPastCheckoutTime, "isPastCheckoutTime");
+    const currentDateHours = new Date().getHours();
+    const currentDateMinutes = new Date().getMinutes();
+
+    const currentFullDateTimeInMinutes =
+      currentDate.getHours() * 60 + currentDate.getMinutes();
+    const halfDayInMinutes = 12 * 60;
+    const currentDateTimeInMinutes = currentDateHours * 60 + currentDateMinutes;
+
+    const isPastCheckoutTime = currentDateTimeInMinutes >= halfDayInMinutes;
 
     // First, update the isTodayCheckout flag for all bookings to ensure it's accurate
     await Bookings.updateMany(
@@ -254,7 +254,7 @@ exports.roomsColorStatus = async (req, res, next) => {
       if (booking.isTodayCheckout === true) {
         // Add to today's checkout list
         registeredAndTodayCheckout.push(...roomNumbers);
-        
+
         // Only add to late checkout list if current time is past the checkout cutoff (12:00 PM)
         if (isPastCheckoutTime) {
           lateCheckOutRooms.push(...roomNumbers);
@@ -327,9 +327,7 @@ exports.roomsColorStatus = async (req, res, next) => {
     const uniquePreviousRegisteredAndNotTodayCheckout = [
       ...new Set(previousRegisteredAndNotTodayCheckout),
     ];
-    const uniqueLateCheckOutRooms = [
-      ...new Set(lateCheckOutRooms),
-    ];
+    const uniqueLateCheckOutRooms = [...new Set(lateCheckOutRooms)];
     const uniqueHousekeepingRooms = [...new Set(housekeepingAllRooms)];
     const uniqueComplaintRooms = [...new Set(complaintsAllRooms)]; // Remove duplicates from complaint rooms
 
@@ -348,8 +346,8 @@ exports.roomsColorStatus = async (req, res, next) => {
       formattedForQueries: todayFormatted,
       currentTimeInfo: {
         currentTime: `${currentHours}:${currentMinutes}`,
-        isPastCheckoutTime: isPastCheckoutTime
-      }
+        isPastCheckoutTime: isPastCheckoutTime,
+      },
     };
 
     // console.log(dateParam, 325);
@@ -706,7 +704,8 @@ exports.updatenightstayaddons = async (req, res, next) => {
 
 exports.updatedBookingInfo = async (req, res, next) => {
   try {
-    const { bookingId, payment, updateDueAmount, ...otherUpdateData } = req.body;
+    const { bookingId, payment, updateDueAmount, ...otherUpdateData } =
+      req.body;
 
     // Find the existing booking to get current payment array
     const existingBooking = await Bookings.findOne({ bookingId });
