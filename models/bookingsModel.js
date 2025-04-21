@@ -111,8 +111,8 @@ const bookingschema = new Schema(
     },
     remarks: {
       type: String,
-      enum: ["normal checkout", "early checkout", "late checkout"],
-      default: "normal checkout",
+      // enum: ["normal checkout", "early checkout", "late checkout"],
+      // default: "normal checkout",
     },
     beforeDiscountCost: {
       type: Number,
