@@ -163,12 +163,16 @@ exports.roomsColorStatus = async (req, res, next) => {
     const currentHours = dhakaNow.getHours();
     const currentMinutes = dhakaNow.getMinutes();
     const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+
+    console.log(currentTimeInMinutes)
     
-    // Define cutoff time (11:59 AM = 11*60 + 59 = 719 minutes)
-    const cutoffTimeInMinutes = 11 * 60 + 59;
+    // Define cutoff time (12:00 PM = 12*60 + 0 = 720 minutes)
+    const cutoffTimeInMinutes = 12 * 60 + 0;
     
     // Check if current time is past the checkout cutoff time
-    const isPastCheckoutTime = currentTimeInMinutes > cutoffTimeInMinutes;
+    // const isPastCheckoutTime = currentTimeInMinutes >= cutoffTimeInMinutes;
+    const isPastCheckoutTime = true
+    console.log(isPastCheckoutTime, "isPastCheckoutTime");
 
     // First, update the isTodayCheckout flag for all bookings to ensure it's accurate
     await Bookings.updateMany(
@@ -251,7 +255,7 @@ exports.roomsColorStatus = async (req, res, next) => {
         // Add to today's checkout list
         registeredAndTodayCheckout.push(...roomNumbers);
         
-        // Only add to late checkout list if current time is past the checkout cutoff (11:59 AM)
+        // Only add to late checkout list if current time is past the checkout cutoff (12:00 PM)
         if (isPastCheckoutTime) {
           lateCheckOutRooms.push(...roomNumbers);
         }
