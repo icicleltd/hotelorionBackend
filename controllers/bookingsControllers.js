@@ -130,16 +130,18 @@ exports.roomsColorStatus = async (req, res, next) => {
     // Store the date parameter in YYYY-MM-DD format for filtering booking rooms
     const requestedDateFormatted = dateParam || todayFormatted;
 
-    // Get current time - ALWAYS USE SERVER TIME FOR CONSISTENCY
+    // Explicitly create new Date object for current time
     const now = new Date();
     const currentHours = now.getHours();
     const currentMinutes = now.getMinutes();
     
-    // Simple check - isPastCheckoutTime is true if hours >= 12 (past noon)
-    // Make sure to use the ">=" comparison to include exactly 12:00 PM
+    // Force isPastCheckoutTime to true if after noon (for testing, you can set to true always)
+    // const isPastCheckoutTime = true; // For testing/debugging
     const isPastCheckoutTime = currentHours >= 12;
     
-    console.log(`Current time: ${currentHours}:${currentMinutes}`);
+    console.log(`Now object: ${now}`);
+    console.log(`Current hours: ${currentHours}`);
+    console.log(`Current minutes: ${currentMinutes}`);
     console.log(`Is past checkout time (noon): ${isPastCheckoutTime}`);
 
     // First, update the isTodayCheckout flag for all bookings to ensure it's accurate
@@ -285,6 +287,10 @@ exports.roomsColorStatus = async (req, res, next) => {
     // Get rooms only for the requested date parameter
     const dateFilteredRooms = bookingRooms[requestedDateFormatted] || [];
 
+    // Debug: Before removing duplicates
+    console.log("Today's checkout rooms before deduplication:", registeredAndTodayCheckout);
+    console.log("Late checkout rooms before deduplication:", lateCheckOutRooms);
+
     // Remove duplicates from each array
     const uniqueRegisteredAndTodayCheckout = [
       ...new Set(registeredAndTodayCheckout),
@@ -298,6 +304,10 @@ exports.roomsColorStatus = async (req, res, next) => {
     const uniqueLateCheckOutRooms = [...new Set(lateCheckOutRooms)];
     const uniqueHousekeepingRooms = [...new Set(housekeepingAllRooms)];
     const uniqueComplaintRooms = [...new Set(complaintsAllRooms)]; // Remove duplicates from complaint rooms
+
+    // Debug: After removing duplicates
+    console.log("Today's checkout rooms after deduplication:", uniqueRegisteredAndTodayCheckout);
+    console.log("Late checkout rooms after deduplication:", uniqueLateCheckOutRooms);
 
     // Create the roomsColor object
     const roomsColor = {
@@ -317,6 +327,13 @@ exports.roomsColorStatus = async (req, res, next) => {
         isPastCheckoutTime: isPastCheckoutTime,
       },
     };
+
+    // Debug: Final response
+    console.log("Final response:", {
+      isPastCheckoutTime: isPastCheckoutTime,
+      lateCheckOutRooms: roomsColor.lateCheckOutRooms,
+      registeredAndTodayCheckout: roomsColor.registeredAndTodayCheckout
+    });
 
     // Return the response
     res.status(200).json({
