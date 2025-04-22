@@ -234,9 +234,9 @@ exports.getRoomsByDateRange = async (req, res, next) => {
     const uniqueRegisteredAndNotTodayCheckout = [...new Set(registeredAndNotTodayCheckout)];
     const uniquePreviousRegisteredAndNotTodayCheckout = [...new Set(previousRegisteredAndNotTodayCheckout)];
     
-    console.log("uniqueRegisteredAndNotTodayCheckout", uniqueRegisteredAndNotTodayCheckout, 237);
-    console.log("uniqueRegisteredAndNotTodayCheckout", uniqueRegisteredAndNotTodayCheckout, 237);
-    console.log("uniquePreviousRegisteredAndNotTodayCheckout", uniquePreviousRegisteredAndNotTodayCheckout, 237);
+    // console.log("uniqueRegisteredAndNotTodayCheckout", uniqueRegisteredAndNotTodayCheckout, 237);
+    // console.log("uniqueRegisteredAndNotTodayCheckout", uniqueRegisteredAndNotTodayCheckout, 237);
+    // console.log("uniquePreviousRegisteredAndNotTodayCheckout", uniquePreviousRegisteredAndNotTodayCheckout, 237);
 
     // Get all booking rooms dates in the requested range
     const dateFilteredRooms = [];

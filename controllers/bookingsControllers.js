@@ -130,27 +130,27 @@ exports.roomsColorStatus = async (req, res, next) => {
     // IMPORTANT: Time zone handling for consistent behavior across environments
     // Get the current time in Bangladesh (Asia/Dhaka)
     // This is a reliable way to get the current time in Bangladesh regardless of server location
-    const options = { timeZone: 'Asia/Dhaka', hour12: false };
-    const bangladeshTimeStr = new Date().toLocaleString('en-US', options);
-    console.log("Bangladesh Time String:", bangladeshTimeStr);
-    
+    const options = { timeZone: "Asia/Dhaka", hour12: false };
+    const bangladeshTimeStr = new Date().toLocaleString("en-US", options);
+    // console.log("Bangladesh Time String:", bangladeshTimeStr);
+
     // Parse the time string to get hours and minutes
-    const [datePart, timePart] = bangladeshTimeStr.split(', ');
-    const [hours, minutes] = timePart.split(':');
+    const [datePart, timePart] = bangladeshTimeStr.split(", ");
+    const [hours, minutes] = timePart.split(":");
     const currentHours = parseInt(hours);
     const currentMinutes = parseInt(minutes);
-    
+
     // Format for display
-    const formattedDateString = new Date().toLocaleString('en-US', { 
-      timeZone: 'Asia/Dhaka'
+    const formattedDateString = new Date().toLocaleString("en-US", {
+      timeZone: "Asia/Dhaka",
     });
-    
+
     // CRITICAL: Define isPastCheckoutTime based on Bangladesh time
     // Use 12:00 PM (noon) as the cutoff
     const isPastCheckoutTime = currentHours >= 12;
-    
-    console.log(`Bangladesh Time: ${currentHours}:${currentMinutes}`);
-    console.log(`Is past checkout time (noon): ${isPastCheckoutTime}`);
+
+    // console.log(`Bangladesh Time: ${currentHours}:${currentMinutes}`);
+    // console.log(`Is past checkout time (noon): ${isPastCheckoutTime}`);
 
     // First, update the isTodayCheckout flag for all bookings to ensure it's accurate
     await Bookings.updateMany(
@@ -228,8 +228,11 @@ exports.roomsColorStatus = async (req, res, next) => {
     });
 
     // Debug: Show the isPastCheckoutTime state before processing rooms
-    console.log("Before processing rooms - isPastCheckoutTime:", isPastCheckoutTime);
-    
+    // console.log(
+    //   "Before processing rooms - isPastCheckoutTime:",
+    //   isPastCheckoutTime
+    // );
+
     // Helper function to process room numbers
     const processRoomNumbers = (booking, roomNumbers) => {
       if (booking.isTodayCheckout === true) {
@@ -239,7 +242,7 @@ exports.roomsColorStatus = async (req, res, next) => {
         // Only add to late checkout list if current time is past the checkout cutoff (12:00 PM)
         // CRITICAL: This is where rooms get added to lateCheckOutRooms
         if (isPastCheckoutTime) {
-          console.log(`Adding room(s) to late checkout:`, roomNumbers);
+          // console.log(`Adding room(s) to late checkout:`, roomNumbers);
           lateCheckOutRooms.push(...roomNumbers);
         }
       } else if (booking.firstDate === todayFormatted) {
@@ -265,8 +268,8 @@ exports.roomsColorStatus = async (req, res, next) => {
     });
 
     // Debug: Show the state of important arrays after processing
-    console.log("Today's checkout rooms:", registeredAndTodayCheckout);
-    console.log("Late checkout rooms after processing:", lateCheckOutRooms);
+    // console.log("Today's checkout rooms:", registeredAndTodayCheckout);
+    // console.log("Late checkout rooms after processing:", lateCheckOutRooms);
 
     // Process online bookings (date-wise)
     onlineBookings.forEach((booking) => {
@@ -318,6 +321,28 @@ exports.roomsColorStatus = async (req, res, next) => {
     const uniqueHousekeepingRooms = [...new Set(housekeepingAllRooms)];
     const uniqueComplaintRooms = [...new Set(complaintsAllRooms)]; // Remove duplicates from complaint rooms
 
+
+    // for today's already checkedout customers
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of the day
+    // Set end of day time
+    const endOfDay = new Date(today);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Find customers created today
+    const todayCustomers = await Customers.find({
+      checkIn: "Checked Out",
+      createdAt: { $gte: today,  },
+    });
+
+    const EarlyTodayCustomersAlrayadyCheckedOut = todayCustomers?.map(item => item?.roomNumber)
+    const flattenedCheckedOutRooms = EarlyTodayCustomersAlrayadyCheckedOut.flat();
+
+    // find customers whose lastDate is today and checkIn is Checked Out
+    const todayCheckedOutCustomers = await Customers.find({ lastDate: todayFormatted, checkIn: "Checked Out" });
+    const todayCheckedOutRooms = todayCheckedOutCustomers?.map(item => item?.roomNumber).flat();
+    // console.log("todayCheckedOutRooms:", todayCheckedOutRooms);
+
     // Create the roomsColor object
     const roomsColor = {
       registeredAndTodayCheckout: uniqueRegisteredAndTodayCheckout,
@@ -331,6 +356,8 @@ exports.roomsColorStatus = async (req, res, next) => {
       complaintRooms: uniqueComplaintRooms, // Added complaint rooms
       currentDate: formattedDateString,
       formattedForQueries: todayFormatted,
+      todayCheckedOutCount: flattenedCheckedOutRooms.length, // for early checkout
+      todayCheckedOutRooms: todayCheckedOutRooms.length, // for today's checkout
       currentTimeInfo: {
         currentTime: `${currentHours}:${currentMinutes}`,
         isPastCheckoutTime: isPastCheckoutTime,
@@ -338,8 +365,8 @@ exports.roomsColorStatus = async (req, res, next) => {
     };
 
     // Final debug log for response data
-    console.log("Final isPastCheckoutTime:", isPastCheckoutTime);
-    console.log("Final lateCheckOutRooms count:", uniqueLateCheckOutRooms.length);
+    // console.log("Final isPastCheckoutTime:", isPastCheckoutTime);
+    // console.log("Final lateCheckOutRooms count:", uniqueLateCheckOutRooms.length);
 
     // Return the response
     res.status(200).json({
