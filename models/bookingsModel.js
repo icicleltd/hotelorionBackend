@@ -5,7 +5,7 @@ const bookingschema = new Schema(
   {
     bookingId: {
       type: String,
-      unique: true,
+      // unique: true,
     },
     customerTitle: {
       type: String,

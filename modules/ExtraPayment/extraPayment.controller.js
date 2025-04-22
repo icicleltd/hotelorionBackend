@@ -59,7 +59,7 @@ exports.createExtraPayment = async (req, res, next) => {
           extraPayment: extraPayment[0]._id,
           dueAmount: newDueAmount,
           // Update the beforeDiscountCost as well to maintain consistency
-          beforeDiscountCost: booking.beforeDiscountCost + itemTotal,
+          // beforeDiscountCost: booking.beforeDiscountCost + itemTotal,
         },
       },
       { session, new: true } // Return the updated document
