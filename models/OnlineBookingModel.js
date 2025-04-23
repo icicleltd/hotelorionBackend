@@ -30,7 +30,6 @@ const onlinebookingschema = new Schema(
     },
     roomsNeed: {
       type: Number,
-      
     },
     adults: {
       type: Number,
@@ -64,6 +63,10 @@ const onlinebookingschema = new Schema(
     isBookings: {
       type: Boolean,
       default: true,
+    },
+    isSingle: {
+      type: Boolean,
+      default: false,
     },
     unseen: {
       type: Boolean,

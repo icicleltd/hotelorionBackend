@@ -46,7 +46,7 @@ exports.deleteOnlineBooking = async (req, res, next) => {
   try {
     const roomNumber = req.params.roomNumber;
     // console.log(roomNumber)
-    const deletedBooking = await OnlineBooking.findOneAndDelete({roomNumber});
+    const deletedBooking = await OnlineBooking.findOneAndDelete({ roomNumber });
     // console.log(deletedBooking)
 
     if (!deletedBooking) {
@@ -67,7 +67,7 @@ exports.deleteOnlineBookingWithoutRoom = async (req, res, next) => {
   try {
     const { id } = req.params;
     // console.log(id);
-    
+
     const deletedBooking = await OnlineBooking.findOneAndDelete({ _id: id });
     // console.log(deletedBooking)
 
