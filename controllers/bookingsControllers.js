@@ -321,7 +321,6 @@ exports.roomsColorStatus = async (req, res, next) => {
     const uniqueHousekeepingRooms = [...new Set(housekeepingAllRooms)];
     const uniqueComplaintRooms = [...new Set(complaintsAllRooms)]; // Remove duplicates from complaint rooms
 
-
     // for today's already checkedout customers
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Set to start of the day
@@ -332,15 +331,23 @@ exports.roomsColorStatus = async (req, res, next) => {
     // Find customers created today
     const todayCustomers = await Customers.find({
       checkIn: "Checked Out",
-      createdAt: { $gte: today,  },
+      createdAt: { $gte: today },
     });
 
-    const EarlyTodayCustomersAlrayadyCheckedOut = todayCustomers?.map(item => item?.roomNumber)
-    const flattenedCheckedOutRooms = EarlyTodayCustomersAlrayadyCheckedOut.flat();
+    const EarlyTodayCustomersAlrayadyCheckedOut = todayCustomers?.map(
+      (item) => item?.roomNumber
+    );
+    const flattenedCheckedOutRooms =
+      EarlyTodayCustomersAlrayadyCheckedOut.flat();
 
     // find customers whose lastDate is today and checkIn is Checked Out
-    const todayCheckedOutCustomers = await Customers.find({ lastDate: todayFormatted, checkIn: "Checked Out" });
-    const todayCheckedOutRooms = todayCheckedOutCustomers?.map(item => item?.roomNumber).flat();
+    const todayCheckedOutCustomers = await Customers.find({
+      lastDate: todayFormatted,
+      checkIn: "Checked Out",
+    });
+    const todayCheckedOutRooms = todayCheckedOutCustomers
+      ?.map((item) => item?.roomNumber)
+      .flat();
     // console.log("todayCheckedOutRooms:", todayCheckedOutRooms);
 
     // Create the roomsColor object
@@ -487,6 +494,7 @@ exports.getSingleBookings = async (req, res, next) => {
   }
 };
 
+// checkout booking and create customer
 exports.updatebooking = async (req, res, next) => {
   try {
     const id = req.params.id;
@@ -506,9 +514,13 @@ exports.updatebooking = async (req, res, next) => {
         return res.status(404).json({ message: "Check In Status Not Changed" });
       }
 
+      // console.log("updatedBooking:", updatedBooking);
+
       const customer = new Customers({
         ...updatedBooking.toObject(),
         _id: undefined,
+        createdAt: undefined,
+        updatedAt: undefined,
       });
 
       await customer.save();
@@ -528,10 +540,12 @@ exports.updatebooking = async (req, res, next) => {
         },
         { new: true }
       );
-
+      console.log("updatedaylongcheckin: ", updatedaylongcheckin);
       const customer = new Customers({
         ...updatedaylongcheckin.toObject(),
         _id: undefined,
+        createdAt: undefined,
+        updatedAt: undefined,
       });
 
       await customer.save();
@@ -568,7 +582,7 @@ exports.updatebooking = async (req, res, next) => {
     }
 
     // If neither regular booking nor daylong booking found, return error
-    return res.status(404).json({ message: "Booking not found" });
+    // return res.status(404).json({ message: "Booking not found" });
   } catch (error) {
     next(error);
   }
@@ -732,6 +746,8 @@ exports.updatedBookingInfo = async (req, res, next) => {
     // Initialize payment amount to 0 if not provided or invalid
     const paymentAmount = Number(payment?.amount) || 0;
 
+    
+
     // Validate existing dueAmount is a number
     const currentDueAmount = Number(existingBooking.dueAmount) || 0;
     const currentPaidAmount = Number(existingBooking.paidAmount) || 0;
@@ -739,6 +755,13 @@ exports.updatedBookingInfo = async (req, res, next) => {
     // calculate due amount with proper validation
     const dueAmount = Math.max(0, currentDueAmount - paymentAmount);
     const paidAmount = currentPaidAmount + paymentAmount;
+
+    // Add the payment to the payment array
+     await Bookings.findOneAndUpdate(
+      { bookingId },
+      { $push: { payment: payment } },
+      { new: false }
+    );
 
     // now update paidAmount and due Amount
     const updatedBooking = await Bookings.findOneAndUpdate(

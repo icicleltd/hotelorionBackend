@@ -50,6 +50,55 @@ exports.getLiveReport = async (req, res, next) => {
       createdAt: { $gte: today, $lte: endOfDay },
     });
 
+    // Find Previous bookings
+    const previousBookings = await Bookings.find({
+      createdAt: { $lt: today },
+      checkIn: "checked In",
+      lastDate: { $ne: new Date().toISOString().split("T")[0] },
+      firstDate: { $ne: new Date().toISOString().split("T")[0] },
+    });
+    // console.log(previousBookings, "previousBookings")
+    // previous bookings rooms count
+    const previousBookingsRooms = previousBookings
+      .map((item) => item.roomNumber)
+      .flat();
+    const todayReceivedAmountFromPreviousGuests = previousBookings.reduce(
+      (sum, booking) => {
+        // Check if payment is an array
+        if (Array.isArray(booking.payment)) {
+          // Filter payments made today
+          const todayPayments = booking.payment.filter((pay) => {
+            // Convert payment date to date object if it's a string
+            const paymentDate = new Date(pay.paymentDate);
+            // Check if the payment was made today
+            return paymentDate >= today && paymentDate <= endOfDay;
+          });
+
+          // Sum up today's payment amounts
+          const todayPaymentSum = todayPayments.reduce((paymentSum, pay) => {
+            return paymentSum + (Number(pay.amount) || 0);
+          }, 0);
+
+          return sum + todayPaymentSum;
+        }
+        return sum;
+      },
+      0
+    );
+
+    const previousGuestsDueAmount = previousBookings.reduce(
+      (sum, booking) => {
+        // Check if due amount is a number
+        if (typeof booking.dueAmount === "number") {
+          return sum + booking.dueAmount;
+        }
+        return sum;
+      },
+      0
+    );
+
+    // console.log(previousGuestsDueAmount, "previousGuestsDueAmount");
+
     // Find customers who checked out today
     const todayCheckouts = await Customers.find({
       checkIn: "Checked Out",
@@ -87,7 +136,7 @@ exports.getLiveReport = async (req, res, next) => {
       checkIn: "Checked Out",
     });
 
-    console.log(todayCheckedOutCustomers?.length, 78)
+    // console.log(todayCheckedOutCustomers?.length, 78)
 
     const startOfDay = new Date(todayFormatted);
     // find customers whose lastDate is today and checkIn is "Checked Out"
@@ -105,9 +154,6 @@ exports.getLiveReport = async (req, res, next) => {
       })
       .flat();
 
-    // console.log(earlyCheckedOutCustomer, 89);
-    // console.log(earlyCheckedOutCustomerRooms);
-
     // Get count of customers and bookings
     const customersCount = todayCustomers.length;
     const bookingsCount = todayBookings.length;
@@ -116,24 +162,24 @@ exports.getLiveReport = async (req, res, next) => {
     const newRoomAmount = todayBookings.reduce((sum, booking) => {
       return sum + (booking.paidAmount || 0);
     }, 0);
+    const newGuestsDueAmount = todayBookings.reduce((sum, booking) => {
+      return sum + (booking.dueAmount || 0);
+    }, 0);
+
+    // console.log(newGuestsDueAmount, "newGuestsDueAmount");
 
     // Calculate revenue from customers (if they have payment information)
     const customerRevenue = todayCustomers.reduce((sum, customer) => {
-      // Check if the customer has payment information
       if (customer.payment && Array.isArray(customer.payment)) {
-        // Sum up all payment amounts for today
         const customerTotal = customer.payment.reduce((paymentSum, payment) => {
           const paymentDate = new Date(payment.paymentDate);
-          // Check if payment date is today
           if (paymentDate >= today && paymentDate <= endOfDay) {
             return paymentSum + (payment.amount || 0);
           }
           return paymentSum;
         }, 0);
         return sum + customerTotal;
-      }
-      // If customer has a direct paidAmount field
-      else if (customer.paidAmount) {
+      } else if (customer.paidAmount) {
         return sum + customer.paidAmount;
       }
       return sum;
@@ -179,11 +225,16 @@ exports.getLiveReport = async (req, res, next) => {
       customersCount,
       bookingsCount,
       newRoomAmount,
+      newGuestsDueAmount,
+      previousRoomAmount: todayReceivedAmountFromPreviousGuests,
+      previousBookingsRoomsCount: previousBookingsRooms.length,
+      previousGuestsDueAmount,
       customerRevenue,
       todayPayments,
       totalRevenue,
       recentCustomers: todayCustomers,
       recentBookings: todayBookings,
+      previousBookings,
       bookingsWithTodayPayments: bookingsWithTodayPayments,
       // Add checkout information
       checkoutsCount: todayCheckouts.length,
