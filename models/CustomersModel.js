@@ -167,6 +167,9 @@ const customerschema = new Schema(
       type: String,
       default: "checked In",
     },
+    beforeDiscountCost: {
+      type: Number,
+    },
     isCorporate: {
       type: Boolean,
     },

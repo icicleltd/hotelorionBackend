@@ -27,41 +27,41 @@ exports.findreports = async (req, res) => {
 };
 
 // live report
+// live report
 exports.getLiveReport = async (req, res, next) => {
   try {
-    // Get the current date
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Set to start of the day
+    // Explicitly set date to April 26, 2025
+    const todayFormatted = "2025-04-26"; // Hard-coded date string
 
-    // Set end of day time
-    const endOfDay = new Date(today);
-    endOfDay.setHours(23, 59, 59, 999);
+    const startOfDay = new Date(`${todayFormatted}T00:00:00.000Z`);
+    const endOfDay = new Date(`${todayFormatted}T23:59:59.999Z`);
 
     // Find customers created today
     const todayCustomers = await Customers.find({
-      createdAt: { $gte: today, $lte: endOfDay },
+      createdAt: { $gte: startOfDay, $lte: endOfDay },
     });
 
-    // Find all bookings (we'll filter payments by date later)
+    // Find all bookings
     const allBookings = await Bookings.find({});
 
     // Find bookings created today
     const todayBookings = await Bookings.find({
-      createdAt: { $gte: today, $lte: endOfDay },
+      createdAt: { $gte: startOfDay, $lte: endOfDay },
     });
 
-    // Find Previous bookings
+    // Find Previous bookings - use the formatted date string for comparison
     const previousBookings = await Bookings.find({
-      createdAt: { $lt: today },
+      createdAt: { $lt: startOfDay },
       checkIn: "checked In",
-      lastDate: { $ne: new Date().toISOString().split("T")[0] },
-      firstDate: { $ne: new Date().toISOString().split("T")[0] },
+      lastDate: { $ne: todayFormatted },
+      firstDate: { $ne: todayFormatted },
     });
-    // console.log(previousBookings, "previousBookings")
+
     // previous bookings rooms count
     const previousBookingsRooms = previousBookings
       .map((item) => item.roomNumber)
       .flat();
+
     const todayReceivedAmountFromPreviousGuests = previousBookings.reduce(
       (sum, booking) => {
         // Check if payment is an array
@@ -71,7 +71,7 @@ exports.getLiveReport = async (req, res, next) => {
             // Convert payment date to date object if it's a string
             const paymentDate = new Date(pay.paymentDate);
             // Check if the payment was made today
-            return paymentDate >= today && paymentDate <= endOfDay;
+            return paymentDate >= startOfDay && paymentDate <= endOfDay;
           });
 
           // Sum up today's payment amounts
@@ -86,30 +86,25 @@ exports.getLiveReport = async (req, res, next) => {
       0
     );
 
-    const previousGuestsDueAmount = previousBookings.reduce(
-      (sum, booking) => {
-        // Check if due amount is a number
-        if (typeof booking.dueAmount === "number") {
-          return sum + booking.dueAmount;
-        }
-        return sum;
-      },
-      0
-    );
-
-    // console.log(previousGuestsDueAmount, "previousGuestsDueAmount");
+    const previousGuestsDueAmount = previousBookings.reduce((sum, booking) => {
+      // Check if due amount is a number
+      if (typeof booking.dueAmount === "number") {
+        return sum + booking.dueAmount;
+      }
+      return sum;
+    }, 0);
 
     // Find customers who checked out today
     const todayCheckouts = await Customers.find({
       checkIn: "Checked Out",
-      updatedAt: { $gte: today, $lte: endOfDay },
+      updatedAt: { $gte: startOfDay, $lte: endOfDay },
     });
 
     // Find early checkouts (customers who checked in AND out on the same day)
     const earlyCheckouts = todayCheckouts.filter((customer) => {
       const checkInDate = new Date(customer.firstDate);
       // Check if customer checked in today (same day as checkout)
-      return checkInDate >= today && checkInDate <= endOfDay;
+      return checkInDate >= startOfDay && checkInDate <= endOfDay;
     });
 
     // Calculate early checkout stats by room
@@ -129,17 +124,14 @@ exports.getLiveReport = async (req, res, next) => {
         count: roomEarlyCheckoutCounts[roomNumber],
       })
     );
-    let currentDate = new Date();
-    const todayFormatted = currentDate.toISOString().split("T")[0];
+
+    // find customers whose lastDate is today and checkIn is "Checked Out"
     const todayCheckedOutCustomers = await Customers.find({
       lastDate: todayFormatted,
       checkIn: "Checked Out",
     });
 
-    // console.log(todayCheckedOutCustomers?.length, 78)
-
-    const startOfDay = new Date(todayFormatted);
-    // find customers whose lastDate is today and checkIn is "Checked Out"
+    // Find customers who checked in and out on the same day (today)
     const earlyCheckedOutCustomers = await Customers.find({
       firstDate: todayFormatted,
       createdAt: {
@@ -148,6 +140,7 @@ exports.getLiveReport = async (req, res, next) => {
       },
       checkIn: "Checked Out",
     });
+
     const earlyCheckedOutCustomerRooms = earlyCheckedOutCustomers
       .map((item) => {
         return item.roomNumber;
@@ -166,14 +159,12 @@ exports.getLiveReport = async (req, res, next) => {
       return sum + (booking.dueAmount || 0);
     }, 0);
 
-    // console.log(newGuestsDueAmount, "newGuestsDueAmount");
-
     // Calculate revenue from customers (if they have payment information)
     const customerRevenue = todayCustomers.reduce((sum, customer) => {
       if (customer.payment && Array.isArray(customer.payment)) {
         const customerTotal = customer.payment.reduce((paymentSum, payment) => {
           const paymentDate = new Date(payment.paymentDate);
-          if (paymentDate >= today && paymentDate <= endOfDay) {
+          if (paymentDate >= startOfDay && paymentDate <= endOfDay) {
             return paymentSum + (payment.amount || 0);
           }
           return paymentSum;
@@ -193,7 +184,7 @@ exports.getLiveReport = async (req, res, next) => {
           (paymentSum, payment) => {
             const paymentDate = new Date(payment.paymentDate);
             // Check if payment date is today
-            if (paymentDate >= today && paymentDate <= endOfDay) {
+            if (paymentDate >= startOfDay && paymentDate <= endOfDay) {
               return paymentSum + (payment.amount || 0);
             }
             return paymentSum;
@@ -213,15 +204,15 @@ exports.getLiveReport = async (req, res, next) => {
       if (booking.payment && Array.isArray(booking.payment)) {
         return booking.payment.some((payment) => {
           const paymentDate = new Date(payment.paymentDate);
-          return paymentDate >= today && paymentDate <= endOfDay;
+          return paymentDate >= startOfDay && paymentDate <= endOfDay;
         });
       }
       return false;
     });
 
-    // Get the data for response
+    // Get the data for response - use the hardcoded date
     const liveReportData = {
-      date: today.toISOString().split("T")[0],
+      date: todayFormatted, // Fixed to 2025-04-26
       customersCount,
       bookingsCount,
       newRoomAmount,
@@ -236,14 +227,10 @@ exports.getLiveReport = async (req, res, next) => {
       recentBookings: todayBookings,
       previousBookings,
       bookingsWithTodayPayments: bookingsWithTodayPayments,
-      // Add checkout information
       checkoutsCount: todayCheckouts.length,
       earlyCheckoutsCount: earlyCheckouts.length,
-
-      // updated
       todayCheckedOutCustomersCount: todayCheckedOutCustomers?.length,
       earlyCheckedOutCustomersCount: earlyCheckedOutCustomers?.length,
-
       earlyCheckouts: earlyCheckoutStats,
     };
 
@@ -252,8 +239,7 @@ exports.getLiveReport = async (req, res, next) => {
       data: liveReportData,
     });
   } catch (error) {
-    console.log(error);
-    // Make sure to use the next parameter for error handling
+    console.log("Error in getLiveReport:", error);
     next(error);
   }
 };
