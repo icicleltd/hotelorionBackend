@@ -26,8 +26,7 @@ exports.findreports = async (req, res) => {
   }
 };
 
-// live report
-// live report
+
 exports.getLiveReport = async (req, res, next) => {
   try {
     // Explicitly set date to April 26, 2025
