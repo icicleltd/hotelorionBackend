@@ -746,8 +746,6 @@ exports.updatedBookingInfo = async (req, res, next) => {
     // Initialize payment amount to 0 if not provided or invalid
     const paymentAmount = Number(payment?.amount) || 0;
 
-    
-
     // Validate existing dueAmount is a number
     const currentDueAmount = Number(existingBooking.dueAmount) || 0;
     const currentPaidAmount = Number(existingBooking.paidAmount) || 0;
@@ -757,7 +755,7 @@ exports.updatedBookingInfo = async (req, res, next) => {
     const paidAmount = currentPaidAmount + paymentAmount;
 
     // Add the payment to the payment array
-     await Bookings.findOneAndUpdate(
+    await Bookings.findOneAndUpdate(
       { bookingId },
       { $push: { payment: payment } },
       { new: false }

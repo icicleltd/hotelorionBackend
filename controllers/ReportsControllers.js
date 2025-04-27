@@ -26,11 +26,10 @@ exports.findreports = async (req, res) => {
   }
 };
 
-
 exports.getLiveReport = async (req, res, next) => {
   try {
-    // Explicitly set date to April 26, 2025
-    const todayFormatted = "2025-04-26"; // Hard-coded date string
+    const today = new Date();
+    const todayFormatted = today.toISOString().split("T")[0];
 
     const startOfDay = new Date(`${todayFormatted}T00:00:00.000Z`);
     const endOfDay = new Date(`${todayFormatted}T23:59:59.999Z`);
