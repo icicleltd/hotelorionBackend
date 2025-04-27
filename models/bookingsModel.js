@@ -128,6 +128,12 @@ const bookingschema = new Schema(
       type: Boolean,
       default: false,
     },
+    corporateName: {
+      type: String,
+    },
+    corporatePhone: {
+      type: String,
+    },
     addressOrCompanyName: {
       type: String,
     },

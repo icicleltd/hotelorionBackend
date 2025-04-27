@@ -728,6 +728,7 @@ exports.updatenightstayaddons = async (req, res, next) => {
   }
 };
 
+// For Due Payment submissions
 exports.updatedBookingInfo = async (req, res, next) => {
   try {
     const { bookingId, payment, updateDueAmount, ...otherUpdateData } =
@@ -769,6 +770,41 @@ exports.updatedBookingInfo = async (req, res, next) => {
     );
 
     // Return the updated booking
+    res.status(200).json({
+      success: true,
+      message: "Booking updated successfully",
+      data: updatedBooking,
+    });
+  } catch (error) {
+    console.error("Error updating booking:", error);
+    next(error);
+  }
+};
+
+// update corporate information into booking infomation
+exports.updatedCorporateBookingInfo = async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    const { corporateName, corporatePhone } = req.body;
+    // Find the existing booking to get current payment array
+    const existingBooking = await Bookings.findOne({ _id: id });
+    if (!existingBooking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    // console.log("existingBooking:", existingBooking);
+
+    const updatedBooking = await Bookings.findOneAndUpdate(
+      { _id: id },
+      { $set: { corporateName, corporatePhone } },
+      { new: true }
+    );
+
+    // console.log("updatedBooking:", updatedBooking);
+
     res.status(200).json({
       success: true,
       message: "Booking updated successfully",

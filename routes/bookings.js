@@ -15,6 +15,7 @@ const {
   getLastbookingsId,
   roomsColorStatus,
   updatepayment,
+  updatedCorporateBookingInfo,
 } = require("../controllers/bookingsControllers");
 const router = express.Router();
 
@@ -56,6 +57,9 @@ router.delete("/deletebooking/:id", deletebooking);
 
 router.patch("/allbookings/:id", updatedBookingInfo);
 router.patch("/updatepayment/:id", updatepayment);
+
+//  for corporate guests
+router.patch("/corporate-guest-update/:id", updatedCorporateBookingInfo);
 
 router.get("/lastRegisteredId", getLastbookingsId);
 
