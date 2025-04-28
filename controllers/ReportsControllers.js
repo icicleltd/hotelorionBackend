@@ -39,6 +39,45 @@ exports.getLiveReport = async (req, res, next) => {
       createdAt: { $gte: startOfDay, $lte: endOfDay },
     });
 
+    const todayDueCustomerAmountCollection = await Customers.find({
+      // Payment made today with amount > 0
+      payment: {
+        $elemMatch: {
+          paymentDate: {
+            $regex: todayFormatted, // Match by date part
+          },
+          amount: { $gt: 0 },
+        },
+      },
+      // Only checked out customers
+      checkIn: "Checked Out",
+      // Check if they were checked out before today
+      // This is approximate since we don't have exact checkout timestamp
+      // Using updateAt as a proxy since it would be updated during checkout
+      createdAt: { $lt: startOfDay }, // Only include customers created before today
+    });
+    // Calculate total due amount collected today
+    const todayDueAmountCollected = todayDueCustomerAmountCollection.reduce(
+      (total, customer) => {
+        // Sum up payment amounts from today
+        const todayPayments = customer.payment.filter((payment) => {
+          const paymentDate = new Date(payment.paymentDate);
+          return (
+            payment.amount > 0 &&
+            paymentDate >= startOfDay &&
+            paymentDate <= endOfDay
+          );
+        });
+
+        const totalForCustomer = todayPayments.reduce(
+          (sum, payment) => sum + payment.amount,
+          0
+        );
+        return total + totalForCustomer;
+      },
+      0
+    );
+
     // Find all bookings
     const allBookings = await Bookings.find({});
 
@@ -230,6 +269,8 @@ exports.getLiveReport = async (req, res, next) => {
       todayCheckedOutCustomersCount: todayCheckedOutCustomers?.length,
       earlyCheckedOutCustomersCount: earlyCheckedOutCustomers?.length,
       earlyCheckouts: earlyCheckoutStats,
+      dueCollectionList: todayDueCustomerAmountCollection,
+      dueCollectionAmount: todayDueAmountCollected,
     };
 
     res.status(200).json({
