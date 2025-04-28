@@ -5,7 +5,7 @@ const HouseKeepingModel = require("../models/housekeepingModel");
 
 exports.createHousekeeping = async (req, res, next) => {
   try {
-    console.log(req.body);
+    // console.log(req.body);
 
     if (!req.body.roomName) {
       console.log("roomName is missing in the request body");

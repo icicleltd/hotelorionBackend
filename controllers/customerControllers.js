@@ -123,7 +123,22 @@ exports.getDueCheckoutsCustomers = async (req, res, next) => {
 exports.addDueAmountFromCustomer = async (req, res, next) => {
   try {
     const id = req.params.id;
-    const { payment, paidAmount, dueAmount } = req.body;
+    const { payment } = req.body;
+
+    const existingCustomer = await Customers.findById(id);
+    if (!existingCustomer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    // Calculate the current total paid amount (sum all payment amounts)
+    const currentTotalPaid =
+      existingCustomer.payment.reduce(
+        (sum, paymentItem) => sum + (paymentItem.amount || 0),
+        0
+      ) + (payment.amount || 0);
+
+    // Calculate the new due amount based on beforeDiscountCost
+    const newDueAmount = existingCustomer.beforeDiscountCost - currentTotalPaid;
 
     // Add the payment to the payment array and update paidAmount and dueAmount
     const updatedCustomer = await Customers.findByIdAndUpdate(
@@ -131,8 +146,8 @@ exports.addDueAmountFromCustomer = async (req, res, next) => {
       {
         $push: { payment: payment },
         $set: {
-          paidAmount: paidAmount,
-          dueAmount: dueAmount,
+          paidAmount: currentTotalPaid,
+          dueAmount: newDueAmount >= 0 ? newDueAmount : 0, // Ensure due amount is never negative
         },
       },
       { new: true }
