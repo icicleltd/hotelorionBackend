@@ -125,6 +125,29 @@ const customerschema = new Schema(
       type: Number,
       required: true,
     },
+    payment: {
+      type: [
+        {
+          paymentmethod: {
+            type: String,
+            required: true,
+          },
+          payNumber: {
+            type: String,
+          },
+          bankName: {
+            type: String,
+          },
+          paymentDate: {
+            type: String,
+          },
+          amount: {
+            type: Number,
+          },
+        },
+      ],
+      required: true,
+    },
     percentagediscount: {
       type: Number,
     },

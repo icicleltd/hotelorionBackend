@@ -17,7 +17,7 @@ exports.getTodayCheckouts = async (req, res, next) => {
     // Get today's date in Dhaka timezone
     const timeZone = "Asia/Dhaka";
     const currentDate = new Date();
-    
+
     const formattedDateString = new Intl.DateTimeFormat("en-US", {
       timeZone: timeZone,
       year: "numeric",
@@ -32,14 +32,17 @@ exports.getTodayCheckouts = async (req, res, next) => {
     // Format is MM/DD/YYYY, HH:MM:SS AM/PM
     const parts = formattedDateString.split(", ");
     const dateParts = parts[0].split("/");
-    
+
     // Format as YYYY-MM-DD for database queries
-    const todayFormatted = `${dateParts[2]}-${dateParts[0].padStart(2, '0')}-${dateParts[1].padStart(2, '0')}`;
-    
+    const todayFormatted = `${dateParts[2]}-${dateParts[0].padStart(
+      2,
+      "0"
+    )}-${dateParts[1].padStart(2, "0")}`;
+
     // Find bookings that have today as their lastDate (checkout date)
     const todayCheckouts = await Bookings.find({
       lastDate: todayFormatted,
-      isRegistered: true
+      isRegistered: true,
     });
 
     res.status(200).json({
@@ -56,7 +59,7 @@ exports.getTodayCheckoutCount = async (req, res, next) => {
   try {
     // Get today's date range
     const today = new Date();
-    today.setHours(0, 0, 0, 0); 
+    today.setHours(0, 0, 0, 0);
 
     const endOfDay = new Date();
     endOfDay.setHours(23, 59, 59, 999);
@@ -90,6 +93,58 @@ exports.getTodayCheckoutCount = async (req, res, next) => {
       message: "Today's checkouts count retrieved successfully",
       count: checkoutCount.length,
       data: checkoutCount,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getDueCheckoutsCustomers = async (req, res, next) => {
+  try {
+    const dueCheckout = await Customers.find({
+      dueAmount: { $gt: 0 },
+      checkIn: "Checked Out",
+    }).sort({ createdAt: -1 });
+
+    // console.log(dueCheckout);
+
+    res.status(200).json({
+      message: "Due checkout customers retrieved successfully",
+      success: true,
+      status: 200,
+      count: dueCheckout.length,
+      data: dueCheckout,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.addDueAmountFromCustomer = async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    const { payment, paidAmount, dueAmount } = req.body;
+
+    // Add the payment to the payment array and update paidAmount and dueAmount
+    const updatedCustomer = await Customers.findByIdAndUpdate(
+      id,
+      {
+        $push: { payment: payment },
+        $set: {
+          paidAmount: paidAmount,
+          dueAmount: dueAmount,
+        },
+      },
+      { new: true }
+    );
+
+    if (!updatedCustomer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    res.status(200).json({
+      message: "Payment processed successfully",
+      data: updatedCustomer,
     });
   } catch (error) {
     next(error);
