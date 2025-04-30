@@ -771,32 +771,92 @@ exports.getDateRangeReport = async (req, res, next) => {
       });
     }
 
-    // Find customers and bookings within date range
+    // Find customers within date range
     const customers = await Customers.find({
       createdAt: { $gte: startDateTime, $lte: endDateTime },
     });
 
+    // Find bookings within date range
     const bookings = await Bookings.find({
       createdAt: { $gte: startDateTime, $lte: endDateTime },
     });
+
+    const dueCustomers = await Customers.find({
+      dueAmount: { $gt: 0 },
+      checkIn: "Checked Out",
+    })
+    
 
     // Initialize payment method totals
     const paymentSummary = {
       totalAmount: 0,
       cashAmount: 0,
-      bankTransferAmount: 0,
+      bankAmount: 0,
       creditCardAmount: 0,
       bkashAmount: 0,
       duePaymentAmount: 0,
     };
 
-    // Process bookings to calculate payment method totals (similar to daily report)
+    // Initialize due customers list
+    let totalDueAmount = 0;
+
+    // Process customers payment information
+    customers.forEach((customer) => {
+      // Add customer's total paid amount to the summary
+      if (customer.paidAmount) {
+        paymentSummary.totalAmount += customer.paidAmount;
+      }
+
+      // Process each payment method in customer payments array
+      if (customer.payment && Array.isArray(customer.payment)) {
+        customer.payment.forEach((payment) => {
+          const amount = payment.amount || 0;
+          
+          // Check payment method and add to appropriate category
+          const paymentMethod = payment.paymentmethod?.toLowerCase() || '';
+          
+          if (paymentMethod.includes('cash')) {
+            paymentSummary.cashAmount += amount;
+          } else if (paymentMethod.includes('bank') || paymentMethod.includes('transfer')) {
+            paymentSummary.bankAmount += amount;
+          } else if (paymentMethod.includes('card')) {
+            paymentSummary.creditCardAmount += amount;
+          } else if (paymentMethod.includes('bkash')) {
+            paymentSummary.bkashAmount += amount;
+          } else {
+            // Default to cash if payment method is not recognized
+            paymentSummary.cashAmount += amount;
+          }
+        });
+      }
+      
+      // Check for due amount and add to due customers list if there is any due
+      if (customer.dueAmount && customer.dueAmount > 0) {
+        dueCustomers.push({
+          _id: customer._id,
+          bookingId: customer.bookingId,
+          customerName: customer.customerName,
+          roomNumber: customer.roomNumber,
+          firstDate: customer.firstDate,
+          lastDate: customer.lastDate,
+          paidAmount: customer.paidAmount,
+          dueAmount: customer.dueAmount,
+          checkIn: customer.checkIn,
+          bookedFrom: customer.bookedFrom,
+          customerNumber: customer.customerNumber,
+        });
+        
+        totalDueAmount += customer.dueAmount;
+        paymentSummary.duePaymentAmount += customer.dueAmount;
+      }
+    });
+
+    // Process bookings to calculate payment method totals
     bookings.forEach((booking) => {
       const totalBookingAmount = booking.paidAmount || 0;
-      paymentSummary.totalAmount += totalBookingAmount;
-
+      
       if (booking.cash) paymentSummary.cashAmount += booking.cash;
-      if (booking.bank) paymentSummary.bankTransferAmount += booking.bank;
+      if (booking.bank) paymentSummary.bankAmount += booking.bank;
       if (booking.card) paymentSummary.creditCardAmount += booking.card;
       if (booking.bkash) paymentSummary.bkashAmount += booking.bkash;
       if (booking.due) paymentSummary.duePaymentAmount += booking.due;
@@ -813,43 +873,6 @@ exports.getDateRangeReport = async (req, res, next) => {
       }
     });
 
-    // Process customers with payment information (similar to daily report)
-    customers.forEach((customer) => {
-      if (customer.payment && Array.isArray(customer.payment)) {
-        customer.payment.forEach((payment) => {
-          const amount = payment.amount || 0;
-          paymentSummary.totalAmount += amount;
-
-          switch (payment.method?.toLowerCase()) {
-            case "cash":
-              paymentSummary.cashAmount += amount;
-              break;
-            case "bank":
-            case "bank transfer":
-              paymentSummary.bankTransferAmount += amount;
-              break;
-            case "card":
-            case "credit card":
-              paymentSummary.creditCardAmount += amount;
-              break;
-            case "bkash":
-              paymentSummary.bkashAmount += amount;
-              break;
-            case "due":
-            case "due payment":
-              paymentSummary.duePaymentAmount += amount;
-              break;
-            default:
-              paymentSummary.cashAmount += amount;
-          }
-        });
-      } else if (customer.paidAmount) {
-        const amount = customer.paidAmount;
-        paymentSummary.totalAmount += amount;
-        paymentSummary.cashAmount += amount;
-      }
-    });
-
     // Group bookings by date for trend analysis
     const bookingsByDate = {};
     bookings.forEach((booking) => {
@@ -862,12 +885,16 @@ exports.getDateRangeReport = async (req, res, next) => {
     });
 
     // Room type statistics
-    const roomTypeStats = bookings.reduce((acc, booking) => {
-      const type = booking.roomType?.toLowerCase() || "unknown";
-      if (!acc[type]) acc[type] = 0;
-      acc[type]++;
-      return acc;
-    }, {});
+    const roomTypeStats = {};
+    customers.forEach((customer) => {
+      if (customer.bookingroom && Array.isArray(customer.bookingroom)) {
+        customer.bookingroom.forEach(roomType => {
+          const type = roomType?.toLowerCase() || "unknown";
+          if (!roomTypeStats[type]) roomTypeStats[type] = 0;
+          roomTypeStats[type]++;
+        });
+      }
+    });
 
     // Prepare report data
     const reportData = {
@@ -878,12 +905,28 @@ exports.getDateRangeReport = async (req, res, next) => {
       summary: {
         totalCustomers: customers.length,
         totalBookings: bookings.length,
+        totalDueAmount,
+        totalDueCustomers: dueCustomers.length,
         paymentSummary,
         roomTypeStats,
       },
       trends: {
         bookingsByDate,
       },
+      customers: customers.map(customer => ({
+        _id: customer._id,
+        bookingId: customer.bookingId,
+        customerName: customer.customerName,
+        roomNumber: customer.roomNumber,
+        firstDate: customer.firstDate,
+        lastDate: customer.lastDate,
+        paidAmount: customer.paidAmount,
+        dueAmount: customer.dueAmount,
+        checkIn: customer.checkIn,
+        bookedFrom: customer.bookedFrom,
+        customerNumber: customer.customerNumber,
+      })),
+      dueCustomers,
     };
 
     res.status(200).json({
