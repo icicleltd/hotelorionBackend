@@ -61,7 +61,7 @@ exports.getTodayCheckoutCount = async (req, res, next) => {
     const now = new Date();
     const today = now.toISOString().split('T')[0]; // YYYY-MM-DD format
     
-    console.log("Today's date for comparison:", today);
+    // console.log("Today's date for comparison:", today);
 
     // Find customers whose firstDate matches today's date
     const todayBookings = await Customers.find({
