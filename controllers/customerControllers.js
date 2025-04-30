@@ -57,32 +57,49 @@ exports.getTodayCheckouts = async (req, res, next) => {
 };
 exports.getTodayCheckoutCount = async (req, res, next) => {
   try {
-    // Get today's date range
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Get current date
+    const now = new Date();
+    const currentHour = now.getHours();
+    
+    // Get previous day (yesterday)
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    
+    // Format as YYYY-MM-DD
+    const targetDate = yesterday.toISOString().split('T')[0];
 
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
+    // Create date range for the previous day (full 24 hours)
+    const startOfDay = new Date(`${targetDate}T00:00:00.000Z`);
+    const endOfDay = new Date(`${targetDate}T23:59:59.999Z`);
 
-    const todayCheckouts = await Customers.find({
-      // Option 1: If you have a specific checkout timestamp field
-      // checkOutTime: { $gte: today, $lte: endOfDay }
+    console.log("Start of Previous Day:", startOfDay.toISOString());
+    console.log("End of Previous Day:", endOfDay.toISOString());
 
-      // Option 2: If you use the "checkIn" status field
-      checkIn: "Checked Out",
-      updatedAt: { $gte: today, $lte: endOfDay },
+    // Find customers who booked rooms during the previous day
+    const previousDayBookings = await Customers.find({
+      createdAt: { $gte: startOfDay, $lte: endOfDay },
+      // Optional: Add additional criteria for valid bookings
     });
 
-    const result = todayCheckouts.reduce((acc, customer) => {
-      if (!acc[customer.roomNumber]) {
-        acc[customer.roomNumber] = 1;
-      } else {
-        acc[customer.roomNumber] += 1;
-      }
+    // Group by room number
+    const result = previousDayBookings.reduce((acc, booking) => {
+      // Handle array of room numbers if needed
+      const roomNumbers = Array.isArray(booking.roomNumber)
+        ? booking.roomNumber
+        : [booking.roomNumber];
+
+      roomNumbers.forEach((room) => {
+        if (!acc[room]) {
+          acc[room] = 1;
+        } else {
+          acc[room] += 1;
+        }
+      });
+
       return acc;
     }, {});
 
-    const checkoutCount = Object.keys(result).map((roomNumber) => ({
+    const roomSellCount = Object.keys(result).map((roomNumber) => ({
       roomNumber,
       count: result[roomNumber],
     }));
@@ -90,14 +107,62 @@ exports.getTodayCheckoutCount = async (req, res, next) => {
     res.status(200).json({
       success: true,
       status: 200,
-      message: "Today's checkouts count retrieved successfully",
-      count: checkoutCount.length,
-      data: checkoutCount,
+      message: `Room sales count for ${targetDate} retrieved successfully`,
+      count: roomSellCount.length,
+      totalRooms: previousDayBookings.length,
+      data: roomSellCount,
     });
   } catch (error) {
     next(error);
   }
 };
+//  previous version
+// exports.getTodayCheckoutCount = async (req, res, next) => {
+//   try {
+//     // Get today's date range
+//     const today = new Date();
+//     today.setHours(0, 0, 0, 0);
+
+//     const endOfDay = new Date();
+//     endOfDay.setHours(23, 59, 59, 999);
+
+//     console.log("Today:", today);
+//     console.log("End of Day:", endOfDay);
+
+//     const todayCheckouts = await Customers.find({
+//       // Option 1: If you have a specific checkout timestamp field
+//       // checkOutTime: { $gte: today, $lte: endOfDay }
+
+//       // Option 2: If you use the "checkIn" status field
+//       checkIn: "Checked Out",
+//       updatedAt: { $gte: today, $lte: endOfDay },
+//     });
+
+//     const result = todayCheckouts.reduce((acc, customer) => {
+//       if (!acc[customer.roomNumber]) {
+//         acc[customer.roomNumber] = 1;
+//       } else {
+//         acc[customer.roomNumber] += 1;
+//       }
+//       return acc;
+//     }, {});
+
+//     const checkoutCount = Object.keys(result).map((roomNumber) => ({
+//       roomNumber,
+//       count: result[roomNumber],
+//     }));
+
+//     res.status(200).json({
+//       success: true,
+//       status: 200,
+//       message: "Today's checkouts count retrieved successfully",
+//       count: checkoutCount.length,
+//       data: checkoutCount,
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
 
 exports.getDueCheckoutsCustomers = async (req, res, next) => {
   try {
