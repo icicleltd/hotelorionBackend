@@ -59,30 +59,17 @@ exports.getTodayCheckoutCount = async (req, res, next) => {
   try {
     // Get current date
     const now = new Date();
-    const currentHour = now.getHours();
+    const today = now.toISOString().split('T')[0]; // YYYY-MM-DD format
     
-    // Get previous day (yesterday)
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-    
-    // Format as YYYY-MM-DD
-    const targetDate = yesterday.toISOString().split('T')[0];
+    console.log("Today's date for comparison:", today);
 
-    // Create date range for the previous day (full 24 hours)
-    const startOfDay = new Date(`${targetDate}T00:00:00.000Z`);
-    const endOfDay = new Date(`${targetDate}T23:59:59.999Z`);
-
-    console.log("Start of Previous Day:", startOfDay.toISOString());
-    console.log("End of Previous Day:", endOfDay.toISOString());
-
-    // Find customers who booked rooms during the previous day
-    const previousDayBookings = await Customers.find({
-      createdAt: { $gte: startOfDay, $lte: endOfDay },
-      // Optional: Add additional criteria for valid bookings
+    // Find customers whose firstDate matches today's date
+    const todayBookings = await Customers.find({
+      firstDate: today
     });
 
     // Group by room number
-    const result = previousDayBookings.reduce((acc, booking) => {
+    const result = todayBookings.reduce((acc, booking) => {
       // Handle array of room numbers if needed
       const roomNumbers = Array.isArray(booking.roomNumber)
         ? booking.roomNumber
@@ -107,9 +94,9 @@ exports.getTodayCheckoutCount = async (req, res, next) => {
     res.status(200).json({
       success: true,
       status: 200,
-      message: `Room sales count for ${targetDate} retrieved successfully`,
+      message: `Room check-ins for today (${today}) retrieved successfully`,
       count: roomSellCount.length,
-      totalRooms: previousDayBookings.length,
+      totalRooms: todayBookings.length,
       data: roomSellCount,
     });
   } catch (error) {
