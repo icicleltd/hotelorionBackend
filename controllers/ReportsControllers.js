@@ -745,6 +745,70 @@ exports.getDailyReport = async (req, res, next) => {
   }
 };
 
+// Today's Checkout Report
+exports.getTodayCheckoutReport = async (req, res, next) => {
+  try {
+    const today = new Date();
+    const todayFormatted = today.toISOString().split("T")[0];
+
+    //  next date
+    const nextDate = new Date(today);
+    nextDate.setDate(today.getDate() + 1);
+    const nextDateFormatted = nextDate.toISOString().split("T")[0];
+    console.log("Next date:", nextDateFormatted);
+
+    // console.log("Today's date:", todayFormatted);
+    const customers = await Customers.find({
+      lastDate: todayFormatted,
+      checkIn: "Checked Out",
+    });
+
+    const earlyCheckedOutCustomers = await Customers.find({
+      lastDate: nextDateFormatted,
+      checkIn: "Checked Out",
+    });
+
+    const mergeEarlyandNormalCustomers = customers.concat(
+      earlyCheckedOutCustomers
+    );
+    console.log(
+      "Merge early and normal customers:",
+      mergeEarlyandNormalCustomers?.length
+    );
+
+    const earlyCheckedOutCustomerAmount = earlyCheckedOutCustomers.reduce(
+      (sum, customer) => {
+        return sum + (customer.paidAmount || 0);
+      },
+      0
+    );
+
+    console.log(earlyCheckedOutCustomerAmount);
+
+    // console.log("Checked out customers:", customers.length);
+    const totalCheckedOutCustomersCount = customers.length;
+    // console.log(
+    //   "Total checked out customers count:", totalCheckedOutCustomersCount)
+
+    const totalAmount = customers.reduce((sum, customer) => {
+      return sum + (customer.paidAmount || 0);
+    }, 0);
+    // console.log("Total amount:", totalAmount);
+    res.status(200).json({
+      success: true,
+      message: "Today's checkout report retrieved successfully",
+      status: 200,
+      data: {
+        mergeEarlyandNormalCustomers,
+      },
+    });
+    // const result = customers
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+};
+
 // Add a new function for custom date range reports
 exports.getDateRangeReport = async (req, res, next) => {
   try {
@@ -784,8 +848,7 @@ exports.getDateRangeReport = async (req, res, next) => {
     const dueCustomers = await Customers.find({
       dueAmount: { $gt: 0 },
       checkIn: "Checked Out",
-    })
-    
+    });
 
     // Initialize payment method totals
     const paymentSummary = {
@@ -811,17 +874,20 @@ exports.getDateRangeReport = async (req, res, next) => {
       if (customer.payment && Array.isArray(customer.payment)) {
         customer.payment.forEach((payment) => {
           const amount = payment.amount || 0;
-          
+
           // Check payment method and add to appropriate category
-          const paymentMethod = payment.paymentmethod?.toLowerCase() || '';
-          
-          if (paymentMethod.includes('cash')) {
+          const paymentMethod = payment.paymentmethod?.toLowerCase() || "";
+
+          if (paymentMethod.includes("cash")) {
             paymentSummary.cashAmount += amount;
-          } else if (paymentMethod.includes('bank') || paymentMethod.includes('transfer')) {
+          } else if (
+            paymentMethod.includes("bank") ||
+            paymentMethod.includes("transfer")
+          ) {
             paymentSummary.bankAmount += amount;
-          } else if (paymentMethod.includes('card')) {
+          } else if (paymentMethod.includes("card")) {
             paymentSummary.creditCardAmount += amount;
-          } else if (paymentMethod.includes('bkash')) {
+          } else if (paymentMethod.includes("bkash")) {
             paymentSummary.bkashAmount += amount;
           } else {
             // Default to cash if payment method is not recognized
@@ -829,7 +895,7 @@ exports.getDateRangeReport = async (req, res, next) => {
           }
         });
       }
-      
+
       // Check for due amount and add to due customers list if there is any due
       if (customer.dueAmount && customer.dueAmount > 0) {
         dueCustomers.push({
@@ -845,7 +911,7 @@ exports.getDateRangeReport = async (req, res, next) => {
           bookedFrom: customer.bookedFrom,
           customerNumber: customer.customerNumber,
         });
-        
+
         totalDueAmount += customer.dueAmount;
         paymentSummary.duePaymentAmount += customer.dueAmount;
       }
@@ -854,7 +920,7 @@ exports.getDateRangeReport = async (req, res, next) => {
     // Process bookings to calculate payment method totals
     bookings.forEach((booking) => {
       const totalBookingAmount = booking.paidAmount || 0;
-      
+
       if (booking.cash) paymentSummary.cashAmount += booking.cash;
       if (booking.bank) paymentSummary.bankAmount += booking.bank;
       if (booking.card) paymentSummary.creditCardAmount += booking.card;
@@ -888,7 +954,7 @@ exports.getDateRangeReport = async (req, res, next) => {
     const roomTypeStats = {};
     customers.forEach((customer) => {
       if (customer.bookingroom && Array.isArray(customer.bookingroom)) {
-        customer.bookingroom.forEach(roomType => {
+        customer.bookingroom.forEach((roomType) => {
           const type = roomType?.toLowerCase() || "unknown";
           if (!roomTypeStats[type]) roomTypeStats[type] = 0;
           roomTypeStats[type]++;
@@ -913,7 +979,7 @@ exports.getDateRangeReport = async (req, res, next) => {
       trends: {
         bookingsByDate,
       },
-      customers: customers.map(customer => ({
+      customers: customers.map((customer) => ({
         _id: customer._id,
         bookingId: customer.bookingId,
         customerName: customer.customerName,

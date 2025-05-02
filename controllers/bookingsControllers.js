@@ -168,6 +168,12 @@ exports.roomsColorStatus = async (req, res, next) => {
       isRegistered: true,
     });
 
+    const totalPersonCountNewGuest = bookings.reduce(
+      (acc, booking) => acc + (booking.person || 0),
+      0
+    );
+    // console.log(totalPersonCountNewGuest, "totalPersonCountNewGuest");
+
     // Fetch online bookings that are not yet converted to registrations
     const onlineBookings = await OnlineBooking.find({
       isBookings: true,
@@ -311,6 +317,9 @@ exports.roomsColorStatus = async (req, res, next) => {
     const uniqueRegisteredAndTodayCheckout = [
       ...new Set(registeredAndTodayCheckout),
     ];
+
+    // console.log(uniqueRegisteredAndTodayCheckout, "uniqueRegisteredAndTodayCheckout")
+
     const uniqueRegisteredAndNotTodayCheckout = [
       ...new Set(registeredAndNotTodayCheckout),
     ];
@@ -350,6 +359,8 @@ exports.roomsColorStatus = async (req, res, next) => {
       .flat();
     // console.log("todayCheckedOutRooms:", todayCheckedOutRooms);
 
+    // console.log(registeredAndTodayCheckout, "registeredAndTodayCheckout")
+
     // Create the roomsColor object
     const roomsColor = {
       registeredAndTodayCheckout: uniqueRegisteredAndTodayCheckout,
@@ -369,6 +380,7 @@ exports.roomsColorStatus = async (req, res, next) => {
         currentTime: `${currentHours}:${currentMinutes}`,
         isPastCheckoutTime: isPastCheckoutTime,
       },
+      totalGuest: totalPersonCountNewGuest
     };
 
     // Final debug log for response data

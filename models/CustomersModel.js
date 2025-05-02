@@ -151,6 +151,10 @@ const customerschema = new Schema(
     percentagediscount: {
       type: Number,
     },
+    isSingle: {
+      type: String,
+      default: false,
+    },
     flatDiscount: {
       type: Number,
     },

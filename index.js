@@ -20,6 +20,7 @@ const LogBookRoutes = require("./modules/LogBook/logbook.routes");
 const ExtraPaymentRoutes = require("./modules/ExtraPayment/extraPayment.routes");
 const ExtraPaymentItemRoutes = require("./modules/ExtraPayment/ExtraPaymentItem/extraPaymentItem.routes");
 const CardPaymentItemRoutes = require("./modules/ExtraPayment/CardPayments/cardPaymentItem.routes");
+const GenerateReportRoutes = require("./modules/GenerateReport/generateReport.routes");
 
 //middleWire
 app.use(cors());
@@ -56,10 +57,13 @@ app.use("/api/logbooks", LogBookRoutes);
 app.use("/api/extrapayment", ExtraPaymentRoutes);
 
 // ExtraPaymentItem
-app.use("/api/extrapayment-item", ExtraPaymentItemRoutes)
+app.use("/api/extrapayment-item", ExtraPaymentItemRoutes);
 
 // CardPaymentItem
-app.use("/api/card-payment-item", CardPaymentItemRoutes)
+app.use("/api/card-payment-item", CardPaymentItemRoutes);
+
+// reports generate
+app.use("/api/generate-report", GenerateReportRoutes);
 
 app.get("/", async (req, res) => {
   res.status(200).json({
