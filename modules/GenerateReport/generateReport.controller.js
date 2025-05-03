@@ -40,8 +40,6 @@ exports.createGenerateReport = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    // console.log("Last Report:", lastReport);
-
     // Calculate the next report sequence number
     const reportSequence = lastReport ? lastReport.reportSequence + 1 : 1;
 
@@ -68,11 +66,6 @@ exports.createGenerateReport = async (req, res, next) => {
           });
         }
       });
-
-    //   console.log(
-    //     "Previously reported customer IDs:",
-    //     Array.from(previouslyReportedCustomerIds)
-    //   );
 
       // Filter out customers already included in any previous reports
       newCheckouts = currentCheckouts.filter(
@@ -101,6 +94,10 @@ exports.createGenerateReport = async (req, res, next) => {
     const earlyNewCheckouts = newCheckouts.filter(
       (c) => c.lastDate === nextDateFormatted
     );
+
+    // cash amounts from new checkouts
+    // console.log("New Checkouts:", newCheckouts);
+    // const cashAmounts = newCheckouts
 
     // Calculate amounts
     const reportData = {
@@ -148,43 +145,94 @@ exports.createGenerateReport = async (req, res, next) => {
 };
 
 exports.getGenerateReport = async (req, res, next) => {
-    try {
-      // Create date objects for start and end of current day
-      const today = new Date();
-      today.setHours(0, 0, 0, 0); // Start of today
-      
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1); // Start of tomorrow
-      
-      // Find reports where createdAt is between start of today and start of tomorrow
-      const generateReport = await GenerateReportModel.find({
-        createdAt: {
-          $gte: today,
-          $lt: tomorrow
-        }
-      }).sort({ createdAt: -1 });
-      
-      res.status(200).json({
-        message: "Generate Report fetched successfully",
-        data: generateReport,
-      });
-    } catch (error) {
-      next(error);
-    }
-  };
+  try {
+    // Create date objects for start and end of current day
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1); // Start of tomorrow
+
+    // Find reports where createdAt is between start of today and start of tomorrow
+    const generateReport = await GenerateReportModel.find({
+      createdAt: {
+        $gte: today,
+        $lt: tomorrow,
+      },
+    }).sort({ createdAt: -1 });
+
+    res.status(200).json({
+      message: "Generate Report fetched successfully",
+      data: generateReport,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 exports.getSingleGenerateReport = async (req, res, next) => {
   try {
     const id = req.params.id;
     const generateReport = await GenerateReportModel.findById(id);
+
     if (!generateReport) {
       return res.status(404).json({
         message: "Generate Report not found",
       });
     }
+
+    // Calculate total amount from all customers
+    const totalAmount = generateReport?.checkoutCustomers?.reduce(
+      (sum, customer) => sum + (customer.paidAmount || 0),
+      0
+    );
+
+    // Initialize payment method totals
+    const paymentMethodTotals = {
+      cashAmount: 0,
+      cardAmount: 0,
+      bkashAmount: 0,
+      otherAmount: 0,
+    };
+
+    // Calculate totals by payment method
+    generateReport?.checkoutCustomers?.forEach((customer) => {
+      if (customer.payment && customer.payment.length > 0) {
+        customer.payment.forEach((payment) => {
+          const amount = payment.amount || 0;
+
+          switch (payment.paymentmethod) {
+            case "Cash":
+              paymentMethodTotals.cashAmount += amount;
+              break;
+            case "Card Payment":
+              paymentMethodTotals.cardAmount += amount;
+              break;
+            case "Bkash":
+              paymentMethodTotals.bkashAmount += amount;
+              break;
+            default:
+              paymentMethodTotals.otherAmount += amount;
+              break;
+          }
+        });
+      }
+    });
+
+    const result = {
+      customerList: generateReport?.checkoutCustomers || [],
+      totalAmount: totalAmount || 0,
+      paymentMethodTotals: {
+        cashAmount: paymentMethodTotals.cashAmount || 0,
+        cardAmount: paymentMethodTotals.cardAmount || 0,
+        bkashAmount: paymentMethodTotals.bkashAmount || 0,
+        otherAmount: paymentMethodTotals.otherAmount || 0,
+      },
+    };
+
     res.status(200).json({
       message: "Generate Report fetched successfully",
-      data: generateReport,
+      data: result,
     });
   } catch (error) {
     next(error);

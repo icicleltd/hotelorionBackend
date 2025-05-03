@@ -30,6 +30,12 @@ const customerschema = new Schema(
     lastDate: {
       type: String,
     },
+    checkInTime: {
+      type: String,
+    },
+    checkOutTime: {
+      type: String,
+    },
     roomNumber: {
       type: Array,
     },
