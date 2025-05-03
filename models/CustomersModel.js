@@ -82,6 +82,16 @@ const customerschema = new Schema(
     remarks: {
       type: String,
     },
+    checkoutStatus: {
+      type: String,
+      enum: [
+        "Early CheckIn",
+        "Early CheckOut",
+        "Late CheckOut",
+        "Normal CheckOut",
+      ],
+      default: "Normal CheckOut",
+    },
 
     checkIn: {
       type: String,

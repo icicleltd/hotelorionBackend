@@ -124,6 +124,16 @@ const bookingschema = new Schema(
       type: String,
       default: "checked In",
     },
+    checkoutStatus: {
+      type: String,
+      enum: [
+        "Early CheckIn",
+        "Early CheckOut",
+        "Late CheckOut",
+        "Normal CheckOut",
+      ],
+      default: "Normal CheckOut",
+    },
     isCorporate: {
       type: Boolean,
       default: false,
