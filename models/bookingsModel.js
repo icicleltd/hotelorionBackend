@@ -134,6 +134,9 @@ const bookingschema = new Schema(
       ],
       default: "Normal CheckOut",
     },
+    roomRent: {
+      type: Number,
+    },
     isCorporate: {
       type: Boolean,
       default: false,

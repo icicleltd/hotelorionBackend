@@ -174,12 +174,42 @@ exports.getSingleGenerateReport = async (req, res, next) => {
   try {
     const id = req.params.id;
     const generateReport = await GenerateReportModel.findById(id);
-
+    
     if (!generateReport) {
       return res.status(404).json({
         message: "Generate Report not found",
       });
     }
+
+    // Find current report index and previous report time
+    const generatedAllReports = await GenerateReportModel.find({}).sort({ createdAt: -1 });
+    
+    // Find the current report's index in array
+    const currentReportIndex = generatedAllReports.findIndex(
+      report => report._id.toString() === id
+    );
+    
+    let previousReportTime = "01:00 AM"; // Default to 01:00 AM
+    let currentReportTime = generateReport.currentTime;
+    let currentReportDate = generateReport.currentDate;
+    
+    // Get previous report time if available
+    if (currentReportIndex !== -1 && currentReportIndex + 1 < generatedAllReports.length) {
+      const previousReport = generatedAllReports[currentReportIndex + 1];
+      
+      // Check if the dates are the same
+      if (previousReport.currentDate === currentReportDate) {
+        previousReportTime = previousReport.currentTime;
+      } else {
+        // If dates are different, keep the default "01:00 AM"
+        previousReportTime = "01:00 AM";
+      }
+    }
+    
+    // Format time range string
+    const formattedTimeRange = `${previousReportTime} - ${currentReportTime}`;
+    
+    // console.log("Report Time Range:", formattedTimeRange);
 
     // Calculate total amount from all customers
     const totalAmount = generateReport?.checkoutCustomers?.reduce(
@@ -228,6 +258,8 @@ exports.getSingleGenerateReport = async (req, res, next) => {
         bkashAmount: paymentMethodTotals.bkashAmount || 0,
         otherAmount: paymentMethodTotals.otherAmount || 0,
       },
+      reportTimeRange: formattedTimeRange,
+      currentTime: generateReport.currentTime 
     };
 
     res.status(200).json({

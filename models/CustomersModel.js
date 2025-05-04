@@ -205,6 +205,9 @@ const customerschema = new Schema(
     roomsCost: {
       type: Number,
     },
+    roomRent: {
+      type: Number,
+    },
 
     checkIn: {
       type: String,
