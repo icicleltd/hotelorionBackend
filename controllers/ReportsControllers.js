@@ -771,10 +771,10 @@ exports.getTodayCheckoutReport = async (req, res, next) => {
     const mergeEarlyandNormalCustomers = customers.concat(
       earlyCheckedOutCustomers
     );
-    console.log(
-      "Merge early and normal customers:",
-      mergeEarlyandNormalCustomers?.length
-    );
+    // console.log(
+    //   "Merge early and normal customers:",
+    //   mergeEarlyandNormalCustomers?.length
+    // );
 
     const earlyCheckedOutCustomerAmount = earlyCheckedOutCustomers.reduce(
       (sum, customer) => {
@@ -783,7 +783,7 @@ exports.getTodayCheckoutReport = async (req, res, next) => {
       0
     );
 
-    console.log(earlyCheckedOutCustomerAmount);
+    // console.log(earlyCheckedOutCustomerAmount);
 
     // console.log("Checked out customers:", customers.length);
     const totalCheckedOutCustomersCount = customers.length;

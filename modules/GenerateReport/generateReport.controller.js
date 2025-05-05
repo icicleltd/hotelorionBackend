@@ -174,7 +174,7 @@ exports.getSingleGenerateReport = async (req, res, next) => {
   try {
     const id = req.params.id;
     const generateReport = await GenerateReportModel.findById(id);
-    
+
     if (!generateReport) {
       return res.status(404).json({
         message: "Generate Report not found",
@@ -182,21 +182,26 @@ exports.getSingleGenerateReport = async (req, res, next) => {
     }
 
     // Find current report index and previous report time
-    const generatedAllReports = await GenerateReportModel.find({}).sort({ createdAt: -1 });
-    
+    const generatedAllReports = await GenerateReportModel.find({}).sort({
+      createdAt: -1,
+    });
+
     // Find the current report's index in array
     const currentReportIndex = generatedAllReports.findIndex(
-      report => report._id.toString() === id
+      (report) => report._id.toString() === id
     );
-    
+
     let previousReportTime = "01:00 AM"; // Default to 01:00 AM
     let currentReportTime = generateReport.currentTime;
     let currentReportDate = generateReport.currentDate;
-    
+
     // Get previous report time if available
-    if (currentReportIndex !== -1 && currentReportIndex + 1 < generatedAllReports.length) {
+    if (
+      currentReportIndex !== -1 &&
+      currentReportIndex + 1 < generatedAllReports.length
+    ) {
       const previousReport = generatedAllReports[currentReportIndex + 1];
-      
+
       // Check if the dates are the same
       if (previousReport.currentDate === currentReportDate) {
         previousReportTime = previousReport.currentTime;
@@ -205,11 +210,9 @@ exports.getSingleGenerateReport = async (req, res, next) => {
         previousReportTime = "01:00 AM";
       }
     }
-    
+
     // Format time range string
     const formattedTimeRange = `${previousReportTime} - ${currentReportTime}`;
-    
-    // console.log("Report Time Range:", formattedTimeRange);
 
     // Calculate total amount from all customers
     const totalAmount = generateReport?.checkoutCustomers?.reduce(
@@ -249,8 +252,148 @@ exports.getSingleGenerateReport = async (req, res, next) => {
       }
     });
 
+    // More robust room count calculation
+    let countedCustomers = new Set(); // To avoid counting the same customer multiple times
+
+    // Helper function to check room type
+    const isRoomType = (customer, type) => {
+      const id = customer._id.toString();
+      if (countedCustomers.has(id)) return false;
+
+      let matches = false;
+
+      switch (type) {
+        case "DS": // Deluxe Single
+          matches =
+            (customer.bookingroom?.includes("Deluxe Single/Couple") &&
+              customer.isSingle === "isSingle") ||
+            customer.roomType === "Deluxe Single";
+          break;
+        case "DC": // Deluxe Couple
+          matches =
+            (customer.bookingroom?.includes("Deluxe Single/Couple") &&
+              (customer.isSingle === "isCouple" ||
+                customer.isSingle === "true")) ||
+            customer.roomType === "Deluxe Couple";
+          break;
+        case "DT": // Deluxe Twin
+          matches =
+            customer.bookingroom?.includes("Deluxe Twin") ||
+            customer.roomType === "Deluxe Twin";
+          break;
+        case "OS": // Orion Suite
+          matches =
+            customer.bookingroom?.includes("Orion Suite") ||
+            customer.roomType === "Orion Suite";
+          break;
+        case "ES": // Executive Suite
+          matches =
+            customer.bookingroom?.includes("Executive Suite") ||
+            customer.roomType === "Executive Suite";
+          break;
+        case "RS": // Royal Suite
+          matches =
+            customer.bookingroom?.includes("Royal Suite") ||
+            customer.roomType === "Royal Suite";
+          break;
+      }
+
+      if (matches) countedCustomers.add(id);
+      return matches;
+    };
+
+    // Perform room type counts
+    const totalDelucxeSingleRoom =
+      generateReport?.checkoutCustomers?.filter((customer) =>
+        isRoomType(customer, "DS")
+      ).length || 0;
+
+    // Reset for next count
+    countedCustomers.clear();
+
+    const totalDelucxeCoupleRoom =
+      generateReport?.checkoutCustomers?.filter((customer) =>
+        isRoomType(customer, "DC")
+      ).length || 0;
+
+    countedCustomers.clear();
+
+    const totalDeluxeTwinRoom =
+      generateReport?.checkoutCustomers?.filter((customer) =>
+        isRoomType(customer, "DT")
+      ).length || 0;
+
+    countedCustomers.clear();
+
+    const totalOrionSuiteRoom =
+      generateReport?.checkoutCustomers?.filter((customer) =>
+        isRoomType(customer, "OS")
+      ).length || 0;
+
+    countedCustomers.clear();
+
+    const totalExecutiveSuiteRoom =
+      generateReport?.checkoutCustomers?.filter((customer) =>
+        isRoomType(customer, "ES")
+      ).length || 0;
+
+    countedCustomers.clear();
+
+    const totalRoyalSuiteRoom =
+      generateReport?.checkoutCustomers?.filter((customer) =>
+        isRoomType(customer, "RS")
+      ).length || 0;
+
+    // Add debugging if needed
+    // console.log("Room counts:", { DS: totalDelucxeSingleRoom, DC: totalDelucxeCoupleRoom, DT: totalDeluxeTwinRoom });
+
+    // const roomsTypeSummary = {
+    //   DS: totalDelucxeSingleRoom,
+    //   DC: totalDelucxeCoupleRoom,
+    //   DT: totalDeluxeTwinRoom,
+    //   OS: totalOrionSuiteRoom,
+    //   ES: totalExecutiveSuiteRoom,
+    //   RS: totalRoyalSuiteRoom,
+    //   total:
+    //     totalDelucxeSingleRoom +
+    //     totalDelucxeCoupleRoom +
+    //     totalDeluxeTwinRoom +
+    //     totalOrionSuiteRoom +
+    //     totalExecutiveSuiteRoom +
+    //     totalRoyalSuiteRoom,
+    // };
+
+    const roomsTypeSummary = [
+      {
+        type: "DS",
+        label: "Deluxe Single",
+        count: totalDelucxeSingleRoom || 0,
+      },
+      {
+        type: "DC",
+        label: "Deluxe Couple",
+        count: totalDelucxeCoupleRoom || 0,
+      },
+      { type: "DT", label: "Deluxe Twin", count: totalDeluxeTwinRoom || 0 },
+      { type: "OS", label: "Orion Suite", count: totalOrionSuiteRoom || 0 },
+      {
+        type: "ES",
+        label: "Executive Suite",
+        count: totalExecutiveSuiteRoom || 0,
+      },
+      { type: "RS", label: "Royal Suite", count: totalRoyalSuiteRoom || 0 },
+      {
+        totalRoomCount:
+          totalDelucxeSingleRoom +
+          totalDelucxeCoupleRoom +
+          totalDeluxeTwinRoom +
+          totalOrionSuiteRoom +
+          totalExecutiveSuiteRoom +
+          totalRoyalSuiteRoom,
+      },
+    ];
+
     const result = {
-      customerList: generateReport?.checkoutCustomers || [],
       totalAmount: totalAmount || 0,
       paymentMethodTotals: {
         cashAmount: paymentMethodTotals.cashAmount || 0,
@@ -259,12 +402,36 @@ exports.getSingleGenerateReport = async (req, res, next) => {
         otherAmount: paymentMethodTotals.otherAmount || 0,
       },
       reportTimeRange: formattedTimeRange,
-      currentTime: generateReport.currentTime 
+      currentTime: generateReport.currentTime,
+      roomsTypeSummary: roomsTypeSummary,
+      customerList: generateReport?.checkoutCustomers || [],
     };
 
     res.status(200).json({
       message: "Generate Report fetched successfully",
       data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteGenerateReport = async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    const generateReport = await GenerateReportModel.findByIdAndDelete(id);
+
+    if (!generateReport) {
+      return res.status(404).json({
+        message: "Generate Report not found",
+      });
+    }
+
+    res.status(200).json({
+      message: "Generate Report deleted successfully",
+      success: true,
+      status: 200,
+      data: generateReport,
     });
   } catch (error) {
     next(error);
