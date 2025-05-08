@@ -552,7 +552,7 @@ exports.updatebooking = async (req, res, next) => {
         },
         { new: true }
       );
-      console.log("updatedaylongcheckin: ", updatedaylongcheckin);
+      // console.log("updatedaylongcheckin: ", updatedaylongcheckin);
       const customer = new Customers({
         ...updatedaylongcheckin.toObject(),
         _id: undefined,
@@ -901,7 +901,7 @@ exports.updatepayment = async (req, res, next) => {
       data: finalUpdatedBooking,
     });
   } catch (error) {
-    console.log("Payment update error:", error);
+    // console.log("Payment update error:", error);
     next(error);
   }
 };

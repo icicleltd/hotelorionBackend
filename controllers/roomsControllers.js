@@ -108,11 +108,13 @@ exports.getRoomsByDateRange = async (req, res, next) => {
     // Find overlapping bookings
     const overlappingBookings = await Bookings.find({
       $or: [
-        { firstDate: { $lte: lastdate }, lastDate: { $gt: firstdate } },
+        { firstDate: { $lte: lastdate }, lastDate: { $gte: firstdate } },
         { firstDate: { $lte: lastdate }, lastDate: null },
         { firstDate: null, lastDate: { $gt: firstdate } },
       ],
     });
+
+    // console.log(overlappingBookings, 117)
 
     // Find overlapping daylong bookings
     const overlappingdaylong = await Daylong.find({
@@ -134,14 +136,17 @@ exports.getRoomsByDateRange = async (req, res, next) => {
     const housekeepingAllRooms = [];
     const complaintsAllRooms = [];
     
+
     // Process registered bookings to populate status arrays
     overlappingBookings.forEach((booking) => {
+      // console.log(booking, 140)
       if (booking.isRegistered) {
         const roomNumbers = Array.isArray(booking.roomNumber) 
           ? booking.roomNumber 
           : booking.roomNumber.split(',').map(room => room.trim());
           
         if (booking.isTodayCheckout === true) {
+
           registeredAndTodayCheckout.push(...roomNumbers);
         } else if (booking.firstDate === todayFormatted) {
           registeredAndNotTodayCheckout.push(...roomNumbers);
@@ -150,6 +155,9 @@ exports.getRoomsByDateRange = async (req, res, next) => {
         }
       }
     });
+
+    // console.log(registeredAndTodayCheckout)
+
     
     // Get online bookings for date tracking
     const onlineBookings = await OnlineBooking.find({
@@ -234,7 +242,8 @@ exports.getRoomsByDateRange = async (req, res, next) => {
     const uniqueRegisteredAndNotTodayCheckout = [...new Set(registeredAndNotTodayCheckout)];
     const uniquePreviousRegisteredAndNotTodayCheckout = [...new Set(previousRegisteredAndNotTodayCheckout)];
     
-    // console.log("uniqueRegisteredAndNotTodayCheckout", uniqueRegisteredAndNotTodayCheckout, 237);
+
+    // console.log("uniqueRegisteredAndTodayCheckout", uniqueRegisteredAndTodayCheckout, 237);
     // console.log("uniqueRegisteredAndNotTodayCheckout", uniqueRegisteredAndNotTodayCheckout, 237);
     // console.log("uniquePreviousRegisteredAndNotTodayCheckout", uniquePreviousRegisteredAndNotTodayCheckout, 237);
 
@@ -249,6 +258,8 @@ exports.getRoomsByDateRange = async (req, res, next) => {
     const uniqueBookingRooms = [...new Set(dateFilteredRooms)];
     const uniqueHousekeepingRooms = [...new Set(housekeepingAllRooms)];
     const uniqueComplaintRooms = [...new Set(complaintsAllRooms)];
+
+    // console.log(uniqueRegisteredAndTodayCheckout, 253)
     
     // Combine all room numbers that should be excluded
     const allExcludedRooms = [
@@ -259,6 +270,8 @@ exports.getRoomsByDateRange = async (req, res, next) => {
       ...uniqueHousekeepingRooms,
       ...uniqueComplaintRooms
     ];
+
+    // console.log(allExcludedRooms, "allExcludedRooms", 274)
     
     // Get unique excluded rooms
     const uniqueExcludedRooms = [...new Set(allExcludedRooms)];
@@ -291,6 +304,8 @@ exports.getRoomsByDateRange = async (req, res, next) => {
         (room) => !allBookedRoomNumbers.includes(room) && !uniqueExcludedRooms.includes(room)
       );
     });
+
+    
 
     res.status(200).json({
       message: "Rooms get successfully",
