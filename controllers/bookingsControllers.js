@@ -51,6 +51,18 @@ exports.createbookings = async (req, res, next) => {
       // Cloudinary URL
     }
 
+    // if discountPercentage is provided, calculate the discount amount
+    if (bookingData.discountPercentage) {
+      const discountAmount = (
+        bookingData.beforeDiscountCost * bookingData.discountPercentage / 100 ||
+        0 // Default to 0 if not provided or invalid 
+      ).toFixed(2);
+      bookingData.discountPercentageAmount = discountAmount;
+    } else {
+      bookingData.discountPercentageAmount = 0; // Default to 0 if not provided
+    }
+    
+
     // Create the booking in your database
     const bookings = await Bookings.create(bookingData);
 

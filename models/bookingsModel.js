@@ -59,6 +59,9 @@ const bookingschema = new Schema(
     discountPercentage: {
       type: Number,
     },
+    discountPercentageAmount: {
+      type: Number,
+    },
     discountFlat: {
       type: Number,
     },
