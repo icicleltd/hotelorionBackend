@@ -52,16 +52,46 @@ exports.createbookings = async (req, res, next) => {
     }
 
     // if discountPercentage is provided, calculate the discount amount
-    if (bookingData.discountPercentage) {
+    // if discountPercentage is provided, calculate the discount amount
+    if (
+      bookingData.discountPercentage &&
+      bookingData?.checkoutStatus === "Late CheckOut"
+    ) {
+      // For Late CheckOut: Calculate discount on (beforeDiscountCost + half of roomRent)
+      const totalAmount =
+        parseFloat(bookingData.beforeDiscountCost || 0) +
+        parseFloat(bookingData.roomRent || 0) / 2;
       const discountAmount = (
-        bookingData.beforeDiscountCost * bookingData.discountPercentage / 100 ||
-        0 // Default to 0 if not provided or invalid 
+        (totalAmount * parseFloat(bookingData.discountPercentage || 0)) /
+        100
       ).toFixed(2);
-      bookingData.discountPercentageAmount = discountAmount;
+      bookingData.discountPercentageAmount = parseFloat(discountAmount);
+    } else if (
+      bookingData.discountPercentage &&
+      bookingData?.checkoutStatus === "Early CheckIn"
+    ) {
+      // For Early CheckIn: Calculate discount on (beforeDiscountCost + half of roomRent)
+      const totalAmount =
+        parseFloat(bookingData.beforeDiscountCost || 0) +
+        parseFloat(bookingData.roomRent || 0) / 2;
+      const discountAmount = (
+        (totalAmount * parseFloat(bookingData.discountPercentage || 0)) /
+        100
+      ).toFixed(2);
+      bookingData.discountPercentageAmount = parseFloat(discountAmount);
+    } else if (bookingData.discountPercentage) {
+      // For regular discount: Calculate discount only on beforeDiscountCost
+      const discountAmount = (
+        (parseFloat(bookingData.beforeDiscountCost || 0) *
+          parseFloat(bookingData.discountPercentage || 0)) /
+        100
+      ).toFixed(2);
+      bookingData.discountPercentageAmount = parseFloat(discountAmount);
     } else {
       bookingData.discountPercentageAmount = 0; // Default to 0 if not provided
     }
-    
+
+    // console.log("Booking Data:", bookingData);
 
     // Create the booking in your database
     const bookings = await Bookings.create(bookingData);
@@ -392,7 +422,7 @@ exports.roomsColorStatus = async (req, res, next) => {
         currentTime: `${currentHours}:${currentMinutes}`,
         isPastCheckoutTime: isPastCheckoutTime,
       },
-      totalGuest: totalPersonCountNewGuest
+      totalGuest: totalPersonCountNewGuest,
     };
 
     // Final debug log for response data
