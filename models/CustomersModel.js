@@ -211,6 +211,9 @@ const customerschema = new Schema(
     roomRent: {
       type: Number,
     },
+    addressOrCompanyName: {
+      type: String,
+    },
 
     checkIn: {
       type: String,
