@@ -1,5 +1,53 @@
 const ComplaintRoomModel = require("../models/complaintRoomModel");
 
+// create a new complaint for a room
+exports.createComplaint = async (req, res, next) => {
+  try {
+    const { complaintRooms, complaints } = req.body;
+
+    if (
+      !complaintRooms ||
+      !Array.isArray(complaintRooms) ||
+      complaintRooms.length === 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Complaint rooms are required and must be an array",
+      });
+    }
+
+    if (!complaints || !Array.isArray(complaints) || complaints.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Complaints are required and must be an array",
+      });
+    }
+
+    // Create a new complaint document
+    const newComplaint = new ComplaintRoomModel({
+      complaintRooms,
+      complaints,
+      isComplaints: true,
+    });
+
+    // Save the complaint document to the database
+    await newComplaint.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Complaint created successfully",
+      data: newComplaint,
+    });
+  } catch (error) {
+    console.error("Error creating complaint:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create complaint",
+      error: error.message,
+    });
+  }
+};
+
 // Get complaints for a specific room
 exports.getComplaintByRoom = async (req, res, next) => {
   try {
