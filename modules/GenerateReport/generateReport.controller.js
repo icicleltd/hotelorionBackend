@@ -161,6 +161,8 @@ exports.getGenerateReport = async (req, res, next) => {
       },
     }).sort({ createdAt: -1 });
 
+    // console.log(generateReport);
+
     res.status(200).json({
       message: "Generate Report fetched successfully",
       data: generateReport,
@@ -191,7 +193,7 @@ exports.getSingleGenerateReport = async (req, res, next) => {
       (report) => report._id.toString() === id
     );
 
-    let previousReportTime = "01:00 AM"; // Default to 01:00 AM
+    let previousReportTime = "12:00 AM"; // Default to 01:00 AM
     let currentReportTime = generateReport.currentTime;
     let currentReportDate = generateReport.currentDate;
 
@@ -207,7 +209,7 @@ exports.getSingleGenerateReport = async (req, res, next) => {
         previousReportTime = previousReport.currentTime;
       } else {
         // If dates are different, keep the default "01:00 AM"
-        previousReportTime = "01:00 AM";
+        previousReportTime = "12:00 AM";
       }
     }
 

@@ -28,8 +28,15 @@ exports.findreports = async (req, res) => {
 
 exports.getLiveReport = async (req, res, next) => {
   try {
+    // const today = new Date();
+    // const todayFormatted = today.toISOString().split("T")[0];
+
+    // Get date ranges
     const today = new Date();
     const todayFormatted = today.toISOString().split("T")[0];
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    const nextDateFormatted = tomorrow.toISOString().split("T")[0];
 
     const startOfDay = new Date(`${todayFormatted}T00:00:00.000Z`);
     const endOfDay = new Date(`${todayFormatted}T23:59:59.999Z`);
@@ -133,9 +140,24 @@ exports.getLiveReport = async (req, res, next) => {
 
     // Find customers who checked out today
     const todayCheckouts = await Customers.find({
-      checkIn: "Checked Out",
-      updatedAt: { $gte: startOfDay, $lte: endOfDay },
+      // checkIn: "Checked Out",
+      // updatedAt: { $gte: startOfDay, $lte: endOfDay },
+      $or: [
+        { lastDate: todayFormatted, checkIn: "Checked Out" },
+        { lastDate: nextDateFormatted, checkIn: "Checked Out" },
+      ],
     });
+
+    // console.log(todayCheckouts, " customers checked out today");
+    const todayCheckoutCustomers = todayCheckouts;
+    // todayCheckoutCustomers Amount
+    const todayCheckoutCustomersAmount = todayCheckoutCustomers.reduce(
+      (sum, customer) => {
+        return sum + (customer.paidAmount || 0);
+      },
+      0
+    );
+    // console.log(todayCheckoutCustomersAmount, "todayCheckoutCustomersAmount")
 
     // Find early checkouts (customers who checked in AND out on the same day)
     const earlyCheckouts = todayCheckouts.filter((customer) => {
@@ -234,7 +256,7 @@ exports.getLiveReport = async (req, res, next) => {
     }, 0);
 
     // Calculate total revenue (including payments made today)
-    const totalRevenue = todayPayments + customerRevenue;
+    const totalRevenue = todayPayments + todayCheckoutCustomersAmount;
 
     // Get bookings with payments made today
     const bookingsWithTodayPayments = allBookings.filter((booking) => {
@@ -257,10 +279,11 @@ exports.getLiveReport = async (req, res, next) => {
       previousRoomAmount: todayReceivedAmountFromPreviousGuests,
       previousBookingsRoomsCount: previousBookingsRooms.length,
       previousGuestsDueAmount,
-      customerRevenue,
+      customerRevenue: todayCheckoutCustomersAmount,
       todayPayments,
       totalRevenue,
-      recentCustomers: todayCustomers,
+      // recentCustomers: todayCustomers,
+      recentCustomers: todayCheckoutCustomers,
       recentBookings: todayBookings,
       previousBookings,
       bookingsWithTodayPayments: bookingsWithTodayPayments,
@@ -272,6 +295,8 @@ exports.getLiveReport = async (req, res, next) => {
       dueCollectionList: todayDueCustomerAmountCollection,
       dueCollectionAmount: todayDueAmountCollected,
     };
+
+    // console.log("Live report data:", liveReportData?.totalRevenue);
 
     res.status(200).json({
       message: "Live report retrieved successfully",
@@ -755,7 +780,7 @@ exports.getTodayCheckoutReport = async (req, res, next) => {
     const nextDate = new Date(today);
     nextDate.setDate(today.getDate() + 1);
     const nextDateFormatted = nextDate.toISOString().split("T")[0];
-    console.log("Next date:", nextDateFormatted);
+    // console.log("Next date:", nextDateFormatted);
 
     // console.log("Today's date:", todayFormatted);
     const customers = await Customers.find({
