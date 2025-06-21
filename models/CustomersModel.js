@@ -15,7 +15,7 @@ const customerschema = new Schema(
       type: Array,
     },
     customerNumber: {
-      type: Number,
+      type: String,
       required: true,
     },
     authentication: {

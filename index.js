@@ -21,6 +21,7 @@ const ExtraPaymentRoutes = require("./modules/ExtraPayment/extraPayment.routes")
 const ExtraPaymentItemRoutes = require("./modules/ExtraPayment/ExtraPaymentItem/extraPaymentItem.routes");
 const CardPaymentItemRoutes = require("./modules/ExtraPayment/CardPayments/cardPaymentItem.routes");
 const GenerateReportRoutes = require("./modules/GenerateReport/generateReport.routes");
+const SMSGatewayRoutes = require("./modules/SMSGateway/smsGatewat.routes");
 
 //middleWire
 app.use(cors());
@@ -64,6 +65,9 @@ app.use("/api/card-payment-item", CardPaymentItemRoutes);
 
 // reports generate
 app.use("/api/generate-report", GenerateReportRoutes);
+
+// sms gateway
+app.use("/api/sms-gateway", SMSGatewayRoutes);
 
 app.get("/", async (req, res) => {
   res.status(200).json({
