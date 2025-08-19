@@ -8,6 +8,9 @@ const userSchema = new Schema(
       required: true,
       unique: true,
     },
+    staffId: {
+      type: String,
+    },
     email: {
       type: String,
       required: true,
@@ -20,6 +23,16 @@ const userSchema = new Schema(
     phone: {
       type: String,
       required: true,
+    },
+    role: {
+      type: String,
+      enum: ["super_admin", "admin", "accounts", "front_desk", "housekeeper"],
+    },
+    permission: {
+      type: Array,
+    },
+    payAggrement: {
+      type: String,
     },
 
     isAdmin: {
