@@ -71,6 +71,50 @@ const getAllUser = async (req, res, next) => {
   }
 };
 
+// update user permission
+const updateUserPermission = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { permissions } = req.body;
+    // console.log("Received permissions:", permissions);
+
+    // Validate permissions is an array
+    if (!Array.isArray(permissions)) {
+      return res.status(400).json({
+        success: false,
+        message: "Permissions must be an array",
+      });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Replace existing permissions with new ones (not merge)
+    user.permission = permissions;
+    user.updatedAt = new Date();
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "User permissions updated successfully",
+      data: user,
+    });
+  } catch (error) {
+    console.error("Error updating user permissions:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update user permissions",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
 module.exports.AuthController = {
   getAllUser,
+  updateUserPermission,
 };

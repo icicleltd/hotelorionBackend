@@ -28,6 +28,15 @@ exports.createGenerateReport = async (req, res, next) => {
       ],
     });
 
+    // previous checkout customers but payment updated today
+    const previousCheckoutsWithPaymentToday = await Customers.find({
+      lastDate: { $lt: todayFormatted },
+      checkIn: "Checked Out",
+      "payment.date": currentDate,
+    });
+
+    // console.log(previousCheckoutsWithPaymentToday)
+
     if (currentCheckouts.length === 0) {
       return res.status(400).json({
         success: false,
@@ -94,10 +103,6 @@ exports.createGenerateReport = async (req, res, next) => {
     const earlyNewCheckouts = newCheckouts.filter(
       (c) => c.lastDate === nextDateFormatted
     );
-
-    // cash amounts from new checkouts
-    // console.log("New Checkouts:", newCheckouts);
-    // const cashAmounts = newCheckouts
 
     // Calculate amounts
     const reportData = {
