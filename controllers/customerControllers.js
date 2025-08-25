@@ -59,13 +59,13 @@ exports.getTodayCheckoutCount = async (req, res, next) => {
   try {
     // Get current date
     const now = new Date();
-    const today = now.toISOString().split('T')[0]; // YYYY-MM-DD format
-    
+    const today = now.toISOString().split("T")[0]; // YYYY-MM-DD format
+
     // console.log("Today's date for comparison:", today);
 
     // Find customers whose firstDate matches today's date
     const todayBookings = await Customers.find({
-      firstDate: today
+      firstDate: today,
     });
 
     // Group by room number
@@ -177,10 +177,18 @@ exports.addDueAmountFromCustomer = async (req, res, next) => {
     const id = req.params.id;
     const { payment } = req.body;
 
+    // console.log("Payment received:", 180, payment);
+
     const existingCustomer = await Customers.findById(id);
     if (!existingCustomer) {
       return res.status(404).json({ message: "Customer not found" });
     }
+
+    // Calculate the actual total amount to be paid (after discount)
+    const actualTotalAmount =
+      existingCustomer.beforeDiscountCost -
+      (existingCustomer.discountPercentageAmount || 0) -
+      (existingCustomer.discountFlat || 0);
 
     // Calculate the current total paid amount (sum all payment amounts)
     const currentTotalPaid =
@@ -189,8 +197,8 @@ exports.addDueAmountFromCustomer = async (req, res, next) => {
         0
       ) + (payment.amount || 0);
 
-    // Calculate the new due amount based on beforeDiscountCost
-    const newDueAmount = existingCustomer.beforeDiscountCost - currentTotalPaid;
+    // Calculate the new due amount based on actual total amount (after discount)
+    const newDueAmount = actualTotalAmount - currentTotalPaid;
 
     // Add the payment to the payment array and update paidAmount and dueAmount
     const updatedCustomer = await Customers.findByIdAndUpdate(
