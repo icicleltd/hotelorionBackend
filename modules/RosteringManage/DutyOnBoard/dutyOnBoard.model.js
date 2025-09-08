@@ -16,31 +16,79 @@ const dutyAssignmentSchema = new Schema({
     enum: ["day_shift", "night_shift"],
     required: true,
   },
+  housekeeper: {
+    type: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      }
+    ],
+    required: false,
+  },
+  // frontdesk: {
+  //   type: [
+  //     {
+  //       type: Schema.Types.ObjectId,
+  //       ref: "User",
+  //     }
+  //   ],
+  //   required: false,
+  // },
+}, {
+  minimize: false,
+  toJSON: { 
+    transform: function(doc, ret) {
+      // Remove empty arrays and undefined fields from JSON output
+      if (ret.housekeeper !== undefined && ret.housekeeper.length === 0) {
+        delete ret.housekeeper;
+      }
+      if (ret.frontdesk !== undefined && ret.frontdesk.length === 0) {
+        delete ret.frontdesk;
+      }
+      return ret;
+    }
+  },
+  toObject: {
+    transform: function(doc, ret) {
+      // Remove empty arrays and undefined fields from Object output
+      if (ret.housekeeper !== undefined && ret.housekeeper.length === 0) {
+        delete ret.housekeeper;
+      }
+      if (ret.frontdesk !== undefined && ret.frontdesk.length === 0) {
+        delete ret.frontdesk;
+      }
+      return ret;
+    }
+  }
+});
 
-  housekeeper: [
-    {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-    },
-  ],
-  frontdesk: [
-    {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-    },
-  ],
+// Pre-save middleware to remove empty arrays before saving
+dutyAssignmentSchema.pre('save', function() {
+  if (this.housekeeper !== undefined && this.housekeeper.length === 0) {
+    this.housekeeper = undefined;
+  }
+  if (this.frontdesk !== undefined && this.frontdesk.length === 0) {
+    this.frontdesk = undefined;
+  }
 });
 
 const dutyOnBoardSchema = new Schema(
   {
     dateRange: {
       type: String,
-      //   required: true,
+      required: false,
     },
     dutyOnHousekeeper: [dutyAssignmentSchema],
     dutyOnFrontdesk: [dutyAssignmentSchema],
   },
-  { timestamps: true }
+  { 
+    timestamps: true,
+    toJSON: { 
+      transform: function(doc, ret) {
+        return ret;
+      }
+    }
+  }
 );
 
 const DutyOnBoardModel = mongoose.model("DutyOnBoard", dutyOnBoardSchema);
