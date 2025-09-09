@@ -25,15 +25,15 @@ const dutyAssignmentSchema = new Schema({
     ],
     required: false,
   },
-  // frontdesk: {
-  //   type: [
-  //     {
-  //       type: Schema.Types.ObjectId,
-  //       ref: "User",
-  //     }
-  //   ],
-  //   required: false,
-  // },
+  frontdesk: {
+    type: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      }
+    ],
+    required: false,
+  },
 }, {
   minimize: false,
   toJSON: { 

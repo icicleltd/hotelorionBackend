@@ -28,7 +28,8 @@ const createADutyOnBoard = async (req, res) => {
     if (!dateRange || !timeRange || !shift || !department) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields: dateRange, timeRange, shift, and department are mandatory.",
+        message:
+          "Missing required fields: dateRange, timeRange, shift, and department are mandatory.",
       });
     }
 
@@ -46,7 +47,8 @@ const createADutyOnBoard = async (req, res) => {
     if (!startDateStr || !endDateStr) {
       return res.status(400).json({
         success: false,
-        message: "Invalid dateRange format. Please use 'DD-MM-YYYY - DD-MM-YYYY'.",
+        message:
+          "Invalid dateRange format. Please use 'DD-MM-YYYY - DD-MM-YYYY'.",
       });
     }
 
@@ -54,7 +56,9 @@ const createADutyOnBoard = async (req, res) => {
     const allDates = getDatesInRange(startDateStr, endDateStr);
 
     // 5. Check if a roster with the same date range exists
-    let existingRoster = await DutyOnBoardModel.findOne({ dateRange: dateRange });
+    let existingRoster = await DutyOnBoardModel.findOne({
+      dateRange: dateRange,
+    });
 
     if (!existingRoster) {
       // Create new document if date range doesn't match
@@ -63,57 +67,61 @@ const createADutyOnBoard = async (req, res) => {
         dutyOnHousekeeper: [],
         dutyOnFrontdesk: [],
       });
-      console.log(`Created new roster document for date range: ${dateRange}`);
+      // console.log(`Created new roster document for date range: ${dateRange}`);
     } else {
-      console.log(`Found existing roster document for date range: ${dateRange}`);
+      console.log(
+        `Found existing roster document for date range: ${dateRange}`
+      );
     }
 
     // 6. Process each date based on department
     for (const date of allDates) {
-      
-      if (department === 'housekeeper') {
+      if (department === "housekeeper") {
         // Process HOUSEKEEPER assignments
         const existingHousekeepingEntry = existingRoster.dutyOnHousekeeper.find(
-          (entry) => entry.date === date && entry.timeRange === timeRange && entry.shift === shift
+          (entry) =>
+            entry.date === date &&
+            entry.timeRange === timeRange &&
+            entry.shift === shift
         );
 
         if (existingHousekeepingEntry) {
           // Update existing housekeeping entry
           existingHousekeepingEntry.housekeeper = housekeeper;
-          console.log(`Updated existing housekeeper entry for ${date}`);
         } else {
-          // Create new housekeeping entry - ONLY with housekeeper data, no frontdesk field
+          // Create new housekeeping entry
           const newEntry = {
             date: date,
             timeRange: timeRange,
             shift: shift,
-            housekeeper: housekeeper
+            housekeeper: housekeeper,
           };
           existingRoster.dutyOnHousekeeper.push(newEntry);
-          console.log(`Created new housekeeper entry for ${date}`);
         }
-      } 
-      else if (department === 'frontend') {
-        // Process FRONTEND assignments (treating as frontdesk in your model)
-        const existingFrontendEntry = existingRoster.dutyOnFrontdesk.find(
-          (entry) => entry.date === date && entry.timeRange === timeRange && entry.shift === shift
+      } else if (department === "frontdesk" || department === "frontend") {
+        // Process FRONTDESK assignments (support both 'frontdesk' and 'frontend')
+        const existingFrontdeskEntry = existingRoster.dutyOnFrontdesk.find(
+          (entry) =>
+            entry.date === date &&
+            entry.timeRange === timeRange &&
+            entry.shift === shift
         );
 
-        if (existingFrontendEntry) {
-          // Update existing frontend entry
-          existingFrontendEntry.frontdesk = housekeeper; // Using housekeeper array for frontend staff
-          console.log(`Updated existing frontend entry for ${date}`);
+        if (existingFrontdeskEntry) {
+          // Update existing frontdesk entry
+          existingFrontdeskEntry.frontdesk = housekeeper; // Using housekeeper array for frontdesk staff
         } else {
-          // Create new frontend entry - ONLY with frontdesk data, no housekeeper field
+          // Create new frontdesk entry
           const newEntry = {
             date: date,
             timeRange: timeRange,
             shift: shift,
-            frontdesk: housekeeper // Using housekeeper array for frontend staff
+            frontdesk: housekeeper, // Using housekeeper array for frontdesk staff
           };
           existingRoster.dutyOnFrontdesk.push(newEntry);
-          console.log(`Created new frontend entry for ${date}`);
         }
+      } else {
+        console.log(`Unknown department: ${department}`);
       }
     }
 
@@ -122,32 +130,37 @@ const createADutyOnBoard = async (req, res) => {
 
     // 8. Clean up the response to remove empty arrays
     const cleanedRoster = JSON.parse(JSON.stringify(updatedRoster));
-    
+
     // Remove empty frontdesk arrays from housekeeper entries
     if (cleanedRoster.dutyOnHousekeeper) {
-      cleanedRoster.dutyOnHousekeeper = cleanedRoster.dutyOnHousekeeper.map(entry => {
-        const cleanEntry = { ...entry };
-        if (cleanEntry.frontdesk && cleanEntry.frontdesk.length === 0) {
-          delete cleanEntry.frontdesk;
+      cleanedRoster.dutyOnHousekeeper = cleanedRoster.dutyOnHousekeeper.map(
+        (entry) => {
+          const cleanEntry = { ...entry };
+          if (cleanEntry.frontdesk && cleanEntry.frontdesk.length === 0) {
+            delete cleanEntry.frontdesk;
+          }
+          return cleanEntry;
         }
-        return cleanEntry;
-      });
-    }
-    
-    // Remove empty housekeeper arrays from frontdesk entries
-    if (cleanedRoster.dutyOnFrontdesk) {
-      cleanedRoster.dutyOnFrontdesk = cleanedRoster.dutyOnFrontdesk.map(entry => {
-        const cleanEntry = { ...entry };
-        if (cleanEntry.housekeeper && cleanEntry.housekeeper.length === 0) {
-          delete cleanEntry.housekeeper;
-        }
-        return cleanEntry;
-      });
+      );
     }
 
-    // 9. Populate the results for the response
+    // Remove empty housekeeper arrays from frontdesk entries
+    if (cleanedRoster.dutyOnFrontdesk) {
+      cleanedRoster.dutyOnFrontdesk = cleanedRoster.dutyOnFrontdesk.map(
+        (entry) => {
+          const cleanEntry = { ...entry };
+          if (cleanEntry.housekeeper && cleanEntry.housekeeper.length === 0) {
+            delete cleanEntry.housekeeper;
+          }
+          return cleanEntry;
+        }
+      );
+    }
+
+    // 9. Populate the results for the response - BOTH POPULATES ADDED
     const populatedRoster = await DutyOnBoardModel.findById(updatedRoster._id)
-      .populate("dutyOnHousekeeper.housekeeper dutyOnFrontdesk.frontdesk")
+      .populate("dutyOnHousekeeper.housekeeper")
+      .populate("dutyOnFrontdesk.frontdesk")
       .lean(); // Use lean() for better performance and easier manipulation
 
     // 10. Send success response
@@ -159,8 +172,8 @@ const createADutyOnBoard = async (req, res) => {
         dateRange: dateRange,
         totalDays: allDates.length,
         department: department,
-        isNewDocument: !existingRoster.isModified() // This will be false if document was newly created
-      }
+        isNewDocument: !existingRoster.isModified(), // This will be false if document was newly created
+      },
     });
   } catch (error) {
     console.error("Error creating duty on board:", error);
@@ -172,41 +185,42 @@ const createADutyOnBoard = async (req, res) => {
   }
 };
 
-// Additional helper function to get all rosters
+// Additional helper function to get all rosters - BOTH POPULATES ADDED
 const getAllDutyRosters = async (req, res) => {
   try {
     const rosters = await DutyOnBoardModel.find({})
-      .populate("dutyOnHousekeeper.housekeeper dutyOnFrontdesk.frontdesk")
+      .populate("dutyOnHousekeeper.housekeeper")
+      .populate("dutyOnFrontdesk.frontdesk")
       .sort({ createdAt: -1 })
       .lean();
 
     // Clean up empty arrays in response
-    const cleanedRosters = rosters.map(roster => {
+    const cleanedRosters = rosters.map((roster) => {
       if (roster.dutyOnHousekeeper) {
-        roster.dutyOnHousekeeper = roster.dutyOnHousekeeper.map(entry => {
+        roster.dutyOnHousekeeper = roster.dutyOnHousekeeper.map((entry) => {
           if (entry.frontdesk && entry.frontdesk.length === 0) {
             delete entry.frontdesk;
           }
           return entry;
         });
       }
-      
+
       if (roster.dutyOnFrontdesk) {
-        roster.dutyOnFrontdesk = roster.dutyOnFrontdesk.map(entry => {
+        roster.dutyOnFrontdesk = roster.dutyOnFrontdesk.map((entry) => {
           if (entry.housekeeper && entry.housekeeper.length === 0) {
             delete entry.housekeeper;
           }
           return entry;
         });
       }
-      
+
       return roster;
     });
 
     res.status(200).json({
       success: true,
       message: `Found ${cleanedRosters.length} duty rosters.`,
-      data: cleanedRosters
+      data: cleanedRosters,
     });
   } catch (error) {
     console.error("Error fetching duty rosters:", error);
@@ -218,7 +232,88 @@ const getAllDutyRosters = async (req, res) => {
   }
 };
 
-// Function to get roster by date range
+// get duty roster by date
+const getDutyRosterByDate = async (req, res) => {
+  try {
+    const { date } = req.query;
+
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        message: "Date parameter is required.",
+      });
+    }
+
+    // Find documents that contain the specified date in either housekeeper or frontdesk arrays
+    const roster = await DutyOnBoardModel.findOne({
+      $or: [
+        { "dutyOnHousekeeper.date": date },
+        { "dutyOnFrontdesk.date": date },
+      ],
+    })
+      .populate("dutyOnHousekeeper.housekeeper")
+      .populate("dutyOnFrontdesk.frontdesk")
+      .lean();
+
+    if (!roster) {
+      return res.status(404).json({
+        success: false,
+        message: `No roster found for date: ${date}`,
+      });
+    }
+
+    // Filter the roster to only include entries for the specified date
+    const filteredRoster = {
+      _id: roster._id,
+      dateRange: roster.dateRange,
+      dutyOnHousekeeper: roster.dutyOnHousekeeper.filter(
+        (entry) => entry.date === date
+      ),
+      dutyOnFrontdesk: roster.dutyOnFrontdesk.filter(
+        (entry) => entry.date === date
+      ),
+      createdAt: roster.createdAt,
+      updatedAt: roster.updatedAt,
+    };
+
+    // Clean up empty arrays
+    if (filteredRoster.dutyOnHousekeeper) {
+      filteredRoster.dutyOnHousekeeper = filteredRoster.dutyOnHousekeeper.map(
+        (entry) => {
+          if (entry.frontdesk && entry.frontdesk.length === 0) {
+            delete entry.frontdesk;
+          }
+          return entry;
+        }
+      );
+    }
+
+    if (filteredRoster.dutyOnFrontdesk) {
+      filteredRoster.dutyOnFrontdesk = filteredRoster.dutyOnFrontdesk.map(
+        (entry) => {
+          if (entry.housekeeper && entry.housekeeper.length === 0) {
+            delete entry.housekeeper;
+          }
+          return entry;
+        }
+      );
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Roster found for date: ${date}`,
+      data: filteredRoster,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error. Could not fetch roster.",
+      error: error.message,
+    });
+  }
+};
+
+// Function to get roster by date range - BOTH POPULATES ADDED
 const getDutyRosterByDateRange = async (req, res) => {
   try {
     const { dateRange } = req.params;
@@ -231,7 +326,8 @@ const getDutyRosterByDateRange = async (req, res) => {
     }
 
     const roster = await DutyOnBoardModel.findOne({ dateRange })
-      .populate("dutyOnHousekeeper.housekeeper dutyOnFrontdesk.frontdesk")
+      .populate("dutyOnHousekeeper.housekeeper")
+      .populate("dutyOnFrontdesk.frontdesk")
       .lean();
 
     if (!roster) {
@@ -243,16 +339,16 @@ const getDutyRosterByDateRange = async (req, res) => {
 
     // Clean up empty arrays
     if (roster.dutyOnHousekeeper) {
-      roster.dutyOnHousekeeper = roster.dutyOnHousekeeper.map(entry => {
+      roster.dutyOnHousekeeper = roster.dutyOnHousekeeper.map((entry) => {
         if (entry.frontdesk && entry.frontdesk.length === 0) {
           delete entry.frontdesk;
         }
         return entry;
       });
     }
-    
+
     if (roster.dutyOnFrontdesk) {
-      roster.dutyOnFrontdesk = roster.dutyOnFrontdesk.map(entry => {
+      roster.dutyOnFrontdesk = roster.dutyOnFrontdesk.map((entry) => {
         if (entry.housekeeper && entry.housekeeper.length === 0) {
           delete entry.housekeeper;
         }
@@ -263,10 +359,9 @@ const getDutyRosterByDateRange = async (req, res) => {
     res.status(200).json({
       success: true,
       message: `Roster found for date range: ${dateRange}`,
-      data: roster
+      data: roster,
     });
   } catch (error) {
-    console.error("Error fetching duty roster by date range:", error);
     res.status(500).json({
       success: false,
       message: "Internal Server Error. Could not fetch roster.",
@@ -299,10 +394,9 @@ const deleteDutyRoster = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Roster deleted successfully.",
-      data: deletedRoster
+      data: deletedRoster,
     });
   } catch (error) {
-    console.error("Error deleting duty roster:", error);
     res.status(500).json({
       success: false,
       message: "Internal Server Error. Could not delete roster.",
@@ -314,6 +408,7 @@ const deleteDutyRoster = async (req, res) => {
 const DutyOnBoardController = {
   createADutyOnBoard,
   getAllDutyRosters,
+  getDutyRosterByDate,
   getDutyRosterByDateRange,
   deleteDutyRoster,
 };
