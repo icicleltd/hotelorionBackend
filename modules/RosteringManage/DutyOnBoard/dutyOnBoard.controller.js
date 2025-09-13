@@ -185,6 +185,194 @@ const createADutyOnBoard = async (req, res) => {
   }
 };
 
+// Update duty roster by specific date
+const updateDutyRosterByDate = async (req, res) => {
+  try {
+    const { date } = req.params; // e.g., "01-09-2025"
+    const { timeRange, shift, housekeeper, frontdesk, department } = req.body;
+
+    // Validation
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        message: "Date parameter is required in URL params.",
+      });
+    }
+
+    if (!timeRange || !shift || !department) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Missing required fields: timeRange, shift, and department are mandatory.",
+      });
+    }
+
+    // Validate department
+    if (!["housekeeper", "frontdesk"].includes(department)) {
+      return res.status(400).json({
+        success: false,
+        message: "Department must be either 'housekeeper' or 'frontdesk'.",
+      });
+    }
+
+    // Get the appropriate staff array based on department
+    const staffArray = department === "housekeeper" ? housekeeper : frontdesk;
+    if (!staffArray || staffArray.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Must provide staff members for the ${department} department.`,
+      });
+    }
+
+    // Convert target date to Date object for comparison
+    const [day, month, year] = date.split("-");
+    const targetDate = new Date(year, month - 1, day);
+
+    // Find the roster document that contains this date
+    const allRosters = await DutyOnBoardModel.find({});
+    let targetRoster = null;
+
+    for (const roster of allRosters) {
+      if (roster.dateRange) {
+        const [startDateStr, endDateStr] = roster.dateRange.split(" - ");
+        if (startDateStr && endDateStr) {
+          const [startDay, startMonth, startYear] = startDateStr.split("-");
+          const [endDay, endMonth, endYear] = endDateStr.split("-");
+
+          const startDate = new Date(startYear, startMonth - 1, startDay);
+          const endDate = new Date(endYear, endMonth - 1, endDay);
+
+          if (targetDate >= startDate && targetDate <= endDate) {
+            targetRoster = roster;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!targetRoster) {
+      return res.status(404).json({
+        success: false,
+        message: `No roster found that includes the date: ${date}. Please check if the date falls within any existing roster period.`,
+      });
+    }
+
+    // Determine which array to update
+    const dutyArrayName =
+      department === "housekeeper" ? "dutyOnHousekeeper" : "dutyOnFrontdesk";
+    const staffFieldName = department;
+
+    // Find existing entry for this specific date, timeRange, and shift
+    const existingEntryIndex = targetRoster[dutyArrayName].findIndex(
+      (entry) =>
+        entry.date === date &&
+        entry.timeRange === timeRange &&
+        entry.shift === shift
+    );
+
+    if (existingEntryIndex !== -1) {
+      // Update existing entry
+      const existingEntry = targetRoster[dutyArrayName][existingEntryIndex];
+
+      // Option 1: Replace the entire staff array (current behavior)
+      // targetRoster[dutyArrayName][existingEntryIndex][staffFieldName] = staffArray;
+
+      // Option 2: Merge with existing staff (avoid duplicates)
+      const existingStaffIds = existingEntry[staffFieldName] || [];
+      const existingIds = existingStaffIds.map((id) => id.toString());
+      const newIds = staffArray.map((id) => id.toString());
+
+      // Combine existing and new staff, removing duplicates
+      const mergedStaffIds = [...new Set([...existingIds, ...newIds])];
+      targetRoster[dutyArrayName][existingEntryIndex][staffFieldName] =
+        mergedStaffIds;
+
+      console.log(`Updated existing entry for ${date}, ${timeRange}, ${shift}`);
+      console.log(
+        `Previous staff count: ${existingStaffIds.length}, New staff count: ${mergedStaffIds.length}`
+      );
+    } else {
+      // Create new entry for this specific date/time/shift combination
+      const newEntry = {
+        date: date,
+        timeRange: timeRange,
+        shift: shift,
+      };
+      newEntry[staffFieldName] = staffArray;
+
+      targetRoster[dutyArrayName].push(newEntry);
+
+      console.log(`Created new entry for ${date}, ${timeRange}, ${shift}`);
+    }
+
+    // Save the updated roster
+    const updatedRoster = await targetRoster.save();
+
+    // Populate the staff details for better response
+    await updatedRoster.populate(
+      `${dutyArrayName}.${staffFieldName}`,
+      "username staffId role phone isAdmin"
+    );
+
+    // Find the updated/created entry to return in response
+    const updatedEntry = updatedRoster[dutyArrayName].find(
+      (entry) =>
+        entry.date === date &&
+        entry.timeRange === timeRange &&
+        entry.shift === shift
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `Duty roster updated successfully for ${date}`,
+      data: {
+        rosterId: updatedRoster._id,
+        dateRange: updatedRoster.dateRange,
+        updatedDate: date,
+        department: department,
+        shift: shift,
+        timeRange: timeRange,
+        staffCount: staffArray.length,
+        updatedEntry: updatedEntry,
+        totalEntriesInArray: updatedRoster[dutyArrayName].length,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating duty roster by date:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error while updating duty roster.",
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Something went wrong",
+    });
+  }
+};
+
+// for more functions  start here
+// Separate controller for each update mode for clarity
+const replaceDutyStaff = async (req, res) => {
+  req.body.updateMode = "replace";
+  return updateDutyRosterByDate(req, res);
+};
+
+const addDutyStaff = async (req, res) => {
+  req.body.updateMode = "add";
+  return updateDutyRosterByDate(req, res);
+};
+
+const removeDutyStaff = async (req, res) => {
+  req.body.updateMode = "remove";
+  return updateDutyRosterByDate(req, res);
+};
+
+const mergeDutyStaff = async (req, res) => {
+  req.body.updateMode = "merge";
+  return updateDutyRosterByDate(req, res);
+};
+// for more functions  end here
+
 // Additional helper function to get all rosters - BOTH POPULATES ADDED
 const getAllDutyRosters = async (req, res) => {
   try {
@@ -409,6 +597,7 @@ const DutyOnBoardController = {
   createADutyOnBoard,
   getAllDutyRosters,
   getDutyRosterByDate,
+  updateDutyRosterByDate,
   getDutyRosterByDateRange,
   deleteDutyRoster,
 };
