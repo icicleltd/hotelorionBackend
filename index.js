@@ -24,6 +24,7 @@ const GenerateReportRoutes = require("./modules/GenerateReport/generateReport.ro
 const SMSGatewayRoutes = require("./modules/SMSGateway/smsGatewat.routes");
 const HousekeeperNameRoutes = require("./modules/HousekeeperName/housekeeperName.routes");
 const DutyOnBoardRoutes = require("./modules/RosteringManage/DutyOnBoard/dutyOnBoard.routes");
+const { initCronJobs } = require("./services/cronJobs");
 
 //middleWire
 app.use(cors());
@@ -31,6 +32,7 @@ app.use(express.json());
 
 //MongoDb connection
 connectDb();
+initCronJobs();
 
 //Routes
 app.use("/api/auth", auth);
