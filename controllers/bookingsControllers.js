@@ -555,10 +555,17 @@ exports.updatebooking = async (req, res, next) => {
 
     const updatecheckin = await Bookings.findById(id);
 
-    // current time format like 10:30 set as a checkOutTime
+    // Get current time in Asian Dhaka timezone
     const now = new Date();
-    const hours = now.getHours().toString().padStart(2, "0");
-    const minutes = now.getMinutes().toString().padStart(2, "0");
+    const options = {
+      timeZone: 'Asia/Dhaka',
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit'
+    };
+
+    const dhakaTime = now.toLocaleTimeString('en-US', options);
+    const [hours, minutes] = dhakaTime.split(':');
     const checkOutTime = `${hours}:${minutes}`;
 
 
