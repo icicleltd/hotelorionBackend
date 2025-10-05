@@ -556,7 +556,7 @@ exports.updatebooking = async (req, res, next) => {
     const updatecheckin = await Bookings.findById(id);
 
     // current time format like 10:30 set as a checkOutTime
-    const now = new Date();
+    const now = new Date().toLocaleString("en-US", { timeZone: "Asia/Dhaka" });
     const hours = now.getHours().toString().padStart(2, "0");
     const minutes = now.getMinutes().toString().padStart(2, "0");
     const checkOutTime = `${hours}:${minutes}`;
