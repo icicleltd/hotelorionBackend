@@ -555,11 +555,19 @@ exports.updatebooking = async (req, res, next) => {
 
     const updatecheckin = await Bookings.findById(id);
 
+    // current time format like 10:30 set as a checkOutTime
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, "0");
+    const minutes = now.getMinutes().toString().padStart(2, "0");
+    const checkOutTime = `${hours}:${minutes}`;
+
+
     if (updatecheckin) {
       const updatedBooking = await Bookings.findByIdAndUpdate(
         id,
         {
           checkIn: "Checked Out",
+          checkOutTime: checkOutTime,
         },
         { new: true }
       );
