@@ -70,6 +70,35 @@ const initCronJobs = () => {
         checkLateCheckouts();
     });
 
+    // check every hour from 2 PM to 11 PM
+    cron.schedule('0 14-23 * * *', () => {
+        console.log('Running scheduled late checkout check on the hour from 2 PM to 11 PM');
+        checkLateCheckouts();
+    });
+
+    // check 2:05 PM
+    cron.schedule('5 14 * * *', () => {
+        console.log('Running scheduled late checkout check at 2:10 PM');
+        checkLateCheckouts();
+    });
+    // check 2:10 PM
+    cron.schedule('10 14 * * *', () => {
+        console.log('Running scheduled late checkout check at 2:10 PM');
+        checkLateCheckouts();
+    });
+
+    // check 2: 20 PM
+    cron.schedule('20 14 * * *', () => {
+        console.log('Running scheduled late checkout check at 2:20 PM');
+        checkLateCheckouts();
+    });
+
+    // check 10:45 PM
+    cron.schedule('58 22 * * *', () => {
+        console.log('Running scheduled late checkout check at 10:45 PM');
+        checkLateCheckouts();
+    });
+
     // TESTING ONLY - Remove after testing
     // cron.schedule('* * * * *', () => {
     //     console.log('Running test - checking every minute');
