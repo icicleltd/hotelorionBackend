@@ -58,29 +58,33 @@ const checkLateCheckouts = async () => {
 
 // Schedule cron jobs
 const initCronJobs = () => {
+
+    // time zone
+    const timezone = 'Asia/Dhaka';
+
     // Run daily at 12:00 PM
     cron.schedule('0 12 * * *', () => {
         console.log('Running scheduled late checkout check at 12:00 PM');
         checkLateCheckouts();
-    });
+    }, { timezone });
 
     // Run daily at 2:00 PM as well (to catch any changes)
     cron.schedule('0 14 * * *', () => {
         console.log('Running scheduled late checkout check at 2:00 PM');
         checkLateCheckouts();
-    });
+    }, { timezone });
 
     // check every hour from 2 PM to 11 PM
     cron.schedule('0 14-23 * * *', () => {
         console.log('Running scheduled late checkout check on the hour from 2 PM to 11 PM');
         checkLateCheckouts();
-    });
+    }, { timezone });
 
     // check 2:05 PM
     cron.schedule('5 14 * * *', () => {
         console.log('Running scheduled late checkout check at 2:10 PM');
         checkLateCheckouts();
-    });
+    }, { timezone });
     // check 2:10 PM
     cron.schedule('10 14 * * *', () => {
         console.log('Running scheduled late checkout check at 2:10 PM');
@@ -91,13 +95,26 @@ const initCronJobs = () => {
     cron.schedule('20 14 * * *', () => {
         console.log('Running scheduled late checkout check at 2:20 PM');
         checkLateCheckouts();
-    });
+    }, { timezone });
+
+    // check 2: 40 PM
+    cron.schedule('35 14 * * *', () => {
+        console.log('Running scheduled late checkout check at 2:40 PM');
+        checkLateCheckouts();
+    }, { timezone });
+
+    // check 2: 55 PM
+    cron.schedule('55 14 * * *', () => {
+        console.log('Running scheduled late checkout check at 2:55 PM');
+        checkLateCheckouts();
+    }, { timezone });
+
 
     // check 10:45 PM
     cron.schedule('58 22 * * *', () => {
         console.log('Running scheduled late checkout check at 10:45 PM');
         checkLateCheckouts();
-    });
+    }, { timezone });
 
     // TESTING ONLY - Remove after testing
     // cron.schedule('* * * * *', () => {
