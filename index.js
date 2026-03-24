@@ -28,6 +28,35 @@ const { initCronJobs } = require("./services/cronJobs");
 
 //middleWire
 app.use(cors());
+app.use((req, res, next) => {
+  const allowedOrigins = [
+    "http://localhost:5173", // Local development
+    "http://hotelorioninternational.com"
+  ];
+  const origin = req.headers.origin;
+
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin); // Dynamically set the origin
+    res.setHeader(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, DELETE, OPTIONS"
+    );
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization"
+    );
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "null"); // Reject unauthorized origins
+  }
+
+  // Handle preflight OPTIONS requests
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  next();
+});
 app.use(express.json());
 
 //MongoDb connection
