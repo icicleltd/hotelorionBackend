@@ -427,43 +427,42 @@ exports.getSingleGenerateReport = async (req, res, next) => {
   try {
     const id = req.params.id;
 
-    // Run both queries at the same time
-    const generateReport = await GenerateReportModel.findById(id).lean();
+    // ✅ Step 1: Get current report first (needed for createdAt)
+    const generateReport = await GenerateReportModel.findById(id)
+      .select("currentTime currentDate createdAt checkoutCustomers")
+      .lean();
+
+    // const generateReport = await GenerateReportModel.findById(id).lean();
+    console.log("customers count:", generateReport?.checkoutCustomers?.length);
+    console.log("doc size KB:", JSON.stringify(generateReport).length / 1024);
 
     if (!generateReport) {
       return res.status(404).json({ message: "Generate Report not found" });
     }
 
-    // ✅ Only fetch the ONE previous report, not all reports
+    // ✅ Step 2: Get previous report in parallel with nothing (already have report)
     const previousReport = await GenerateReportModel.findOne({
       createdAt: { $lt: generateReport.createdAt },
     })
       .sort({ createdAt: -1 })
-      .select("currentTime currentDate") // ✅ only fetch needed fields
+      .select("currentTime currentDate")
       .lean();
 
     let previousReportTime = "12:00 AM";
-
     if (previousReport && previousReport.currentDate === generateReport.currentDate) {
       previousReportTime = previousReport.currentTime;
     }
 
     const formattedTimeRange = `${previousReportTime} - ${generateReport.currentTime}`;
-
-    // Calculate totals
     const customers = generateReport?.checkoutCustomers || [];
 
     let totalAmount = 0;
     const paymentMethodTotals = { cashAmount: 0, cardAmount: 0, bkashAmount: 0, otherAmount: 0 };
-
-    // Room counts
     let DS = 0, DC = 0, DT = 0, OS = 0, ES = 0, RS = 0;
 
-    // ✅ Single loop instead of 6 separate filter loops
     customers.forEach((customer) => {
       totalAmount += customer.paidAmount || 0;
 
-      // Payment totals
       customer.payment?.forEach((payment) => {
         const amount = payment.amount || 0;
         switch (payment.paymentmethod) {
@@ -474,10 +473,8 @@ exports.getSingleGenerateReport = async (req, res, next) => {
         }
       });
 
-      // Room type counts
       const room = customer.bookingroom?.[0];
       const isSingle = customer.isSingle;
-
       if (room === "Deluxe Single/Couple") {
         if (isSingle === "isSingle") DS++;
         else if (isSingle === "isCouple" || isSingle === "true") DC++;
