@@ -149,28 +149,118 @@ exports.createGenerateReport = async (req, res, next) => {
   }
 };
 
+// exports.getGenerateReport = async (req, res, next) => {
+//   try {
+//     // Create date objects for start and end of current day
+//     const today = new Date();
+//     today.setHours(0, 0, 0, 0); // Start of today
+
+//     const tomorrow = new Date(today);
+//     tomorrow.setDate(tomorrow.getDate() + 1); // Start of tomorrow
+
+//     // Find reports where createdAt is between start of today and start of tomorrow
+//     const generateReport = await GenerateReportModel.find({
+//       createdAt: {
+//         $gte: today,
+//         $lt: tomorrow,
+//       },
+//     }).sort({ createdAt: -1 });
+
+//     // console.log(generateReport);
+
+//     res.status(200).json({
+//       message: "Generate Report fetched successfully",
+//       data: generateReport,
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
 exports.getGenerateReport = async (req, res, next) => {
   try {
-    // Create date objects for start and end of current day
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
+    const id = req.params.id;
 
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1); // Start of tomorrow
+    // Run both queries at the same time
+    const generateReport = await GenerateReportModel.findById(id).lean();
 
-    // Find reports where createdAt is between start of today and start of tomorrow
-    const generateReport = await GenerateReportModel.find({
-      createdAt: {
-        $gte: today,
-        $lt: tomorrow,
-      },
-    }).sort({ createdAt: -1 });
+    if (!generateReport) {
+      return res.status(404).json({ message: "Generate Report not found" });
+    }
 
-    // console.log(generateReport);
+    // ✅ Only fetch the ONE previous report, not all reports
+    const previousReport = await GenerateReportModel.findOne({
+      createdAt: { $lt: generateReport.createdAt },
+    })
+      .sort({ createdAt: -1 })
+      .select("currentTime currentDate") // ✅ only fetch needed fields
+      .lean();
+
+    let previousReportTime = "12:00 AM";
+
+    if (previousReport && previousReport.currentDate === generateReport.currentDate) {
+      previousReportTime = previousReport.currentTime;
+    }
+
+    const formattedTimeRange = `${previousReportTime} - ${generateReport.currentTime}`;
+
+    // Calculate totals
+    const customers = generateReport?.checkoutCustomers || [];
+
+    let totalAmount = 0;
+    const paymentMethodTotals = { cashAmount: 0, cardAmount: 0, bkashAmount: 0, otherAmount: 0 };
+
+    // Room counts
+    let DS = 0, DC = 0, DT = 0, OS = 0, ES = 0, RS = 0;
+
+    // ✅ Single loop instead of 6 separate filter loops
+    customers.forEach((customer) => {
+      totalAmount += customer.paidAmount || 0;
+
+      // Payment totals
+      customer.payment?.forEach((payment) => {
+        const amount = payment.amount || 0;
+        switch (payment.paymentmethod) {
+          case "Cash": paymentMethodTotals.cashAmount += amount; break;
+          case "Card Payment": paymentMethodTotals.cardAmount += amount; break;
+          case "Bkash": paymentMethodTotals.bkashAmount += amount; break;
+          default: paymentMethodTotals.otherAmount += amount;
+        }
+      });
+
+      // Room type counts
+      const room = customer.bookingroom?.[0];
+      const isSingle = customer.isSingle;
+
+      if (room === "Deluxe Single/Couple") {
+        if (isSingle === "isSingle") DS++;
+        else if (isSingle === "isCouple" || isSingle === "true") DC++;
+      } else if (room === "Deluxe Twin") DT++;
+      else if (room === "Orion Suite") OS++;
+      else if (room === "Executive Suite") ES++;
+      else if (room === "Royal Suite") RS++;
+    });
+
+    const roomsTypeSummary = [
+      { type: "DS", label: "Deluxe Single", count: DS },
+      { type: "DC", label: "Deluxe Couple", count: DC },
+      { type: "DT", label: "Deluxe Twin", count: DT },
+      { type: "OS", label: "Orion Suite", count: OS },
+      { type: "ES", label: "Executive Suite", count: ES },
+      { type: "RS", label: "Royal Suite", count: RS },
+      { totalRoomCount: DS + DC + DT + OS + ES + RS },
+    ];
 
     res.status(200).json({
       message: "Generate Report fetched successfully",
-      data: generateReport,
+      data: {
+        totalAmount,
+        paymentMethodTotals,
+        reportTimeRange: formattedTimeRange,
+        currentTime: generateReport.currentTime,
+        roomsTypeSummary,
+        customerList: customers,
+      },
     });
   } catch (error) {
     next(error);
