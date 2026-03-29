@@ -61,14 +61,39 @@ app.use(express.json());
 
 //MongoDb connection
 //MongoDb connection
+// connectDb()
+//   .then(() => {
+//     console.log("MongoDB Connected Successfully");
+//     initCronJobs();
+//   })
+//   .catch(err => {
+//     console.error("Database connection failed:", err);
+//   });
+
+  let dbConnected = false;
+
+//MongoDb connection
 connectDb()
   .then(() => {
     console.log("MongoDB Connected Successfully");
+    dbConnected = true;
     initCronJobs();
   })
   .catch(err => {
     console.error("Database connection failed:", err);
   });
+
+// Add this middleware to check if DB is connected
+app.use((req, res, next) => {
+  if (!dbConnected && req.path !== "/") {
+    return res.status(503).json({
+      success: false,
+      message: "Database is still connecting. Please try again in a moment."
+    });
+  }
+  next();
+});
+
 
 //Routes
 app.use("/api/auth", auth);
