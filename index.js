@@ -60,8 +60,8 @@ app.use(cors());
 app.use(express.json());
 
 //MongoDb connection
-connectDb();
-initCronJobs();
+// connectDb();
+// initCronJobs();
 
 //Routes
 app.use("/api/auth", auth);
