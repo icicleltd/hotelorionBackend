@@ -60,8 +60,15 @@ app.use(cors());
 app.use(express.json());
 
 //MongoDb connection
-// connectDb();
-// initCronJobs();
+//MongoDb connection
+connectDb()
+  .then(() => {
+    console.log("MongoDB Connected Successfully");
+    initCronJobs();
+  })
+  .catch(err => {
+    console.error("Database connection failed:", err);
+  });
 
 //Routes
 app.use("/api/auth", auth);
