@@ -58,9 +58,17 @@ app.use(cors());
 //   next();
 // });
 app.use(express.json());
-
+app.use(async (req, res, next) => {
+  try {
+    await connectDB(); // ✅ ensures DB before every request
+    next();
+  } catch (error) {
+    console.error("DB connection error:", error);
+    res.status(500).json({ message: "Database connection failed" });
+  }
+});
 //MongoDb connection
-connectDB();
+// connectDB();
 initCronJobs();
 
 //Routes
