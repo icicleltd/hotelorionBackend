@@ -1,40 +1,3 @@
-// const { default: mongoose } = require("mongoose");
-
-// // const connectDb = async () => {
-// //   try {
-// //     await mongoose.connect(process.env.MONGO_URL);
-// //     console.log("MongoDB Connected Successfully");
-// //   } catch (error) {
-// //     throw error;
-// //   }
-// // };
-
-
-
-
-// let isConnected = false;
-
-//  const connectDB = async () => {
-//   if (isConnected) {
-//     // Already connected
-//     return;
-//   }
-
-//   try {
-//     const db = await mongoose.connect(process.env.MONGO_URL, {
-//       bufferCommands: false,
-//     });
-
-//     isConnected = db.connections[0].readyState === 1;
-//     console.log("MongoDB connected");
-//   } catch (error) {
-//     console.error("MongoDB connection failed:", error);
-//     // throw new AppError(500, "Mongodb connect error");
-//   }
-// };
-// module.exports = { connectDB };
-
-
 const mongoose = require("mongoose");
 
 let cached = global.mongoose;
@@ -44,22 +7,29 @@ if (!cached) {
 }
 
 const connectDB = async () => {
-  if (cached.conn) {
-    return cached.conn;
-  }
-
-  if (!cached.promise) {
-    if (!process.env.MONGO_URL) {
-      throw new Error("MONGO_URL is missing");
+  try {
+    if (cached.conn) {
+      console.log("⚡ MongoDB already connected (cached)");
+      return cached.conn;
     }
 
-    cached.promise = mongoose.connect(process.env.MONGO_URL, {
-      bufferCommands: false,
-    });
-  }
+    if (!cached.promise) {
+      cached.promise = mongoose.connect(process.env.MONGO_URL, {
+        bufferCommands: false,
+      });
+    }
 
-  cached.conn = await cached.promise;
-  return cached.conn;
+    cached.conn = await cached.promise;
+
+    console.log("✅ MongoDB Connected Successfully (Local)");
+
+    console.log("📊 Connection State:", mongoose.connection.readyState);
+
+    return cached.conn;
+  } catch (error) {
+    console.log("❌ MongoDB Connection Failed:", error.message);
+    throw error;
+  }
 };
 
 module.exports = { connectDB };
