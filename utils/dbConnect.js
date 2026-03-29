@@ -21,7 +21,7 @@ let isConnected = false;
   }
 
   try {
-    const db = await mongoose.connect(process.env.DATABASE_URL, {
+    const db = await mongoose.connect(process.env.MONGO_URL, {
       bufferCommands: false,
     });
 

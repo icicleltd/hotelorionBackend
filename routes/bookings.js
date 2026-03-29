@@ -20,8 +20,8 @@ const {
 const router = express.Router();
 
 const multer = require("multer");
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("cloudinary").v2;
+const CloudinaryStorage = require("multer-storage-cloudinary").CloudinaryStorage;
 
 //========== for file upload to cloudinary  start here
 cloudinary.config({
@@ -33,13 +33,12 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: "hotel-bookings", // The folder in Cloudinary where images will be stored
-    allowed_formats: ["jpg", "png", "jpeg", "pdf"], // Allowed file formats
-    transformation: [{ width: 500, height: 500, crop: "limit" }], // Optional transformations
+    folder: "hotel-bookings",
+    allowed_formats: ["jpg", "png", "jpeg", "pdf"],
   },
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ storage });
 //========= for file upload to cloudinary  end here
 
 // router.post("/add-bookings", createbookings);
